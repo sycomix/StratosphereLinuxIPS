@@ -20,6 +20,7 @@ from alerts import *
 import time
 import re
 from math import *
+import ip_blocker
 
 #bayess
 #check if the log directory exists, if not, create it
@@ -227,6 +228,18 @@ class IpAddress(object):
         # ws, fp_cost, fn_cost, mean_malicious, sd_malicious, mean_normal, sd_normal, prior_malicious
         self.last_verdict = self.get_bayesian_verdict(ws,3,1,0.005,0.5,0,0.01,0.0001)
         #self.last_verdict = self.get_bayesian_verdict(ws, 100, 1, 1, 1, 1, 1, 0.00000000001)
+        """
+            if results[i].lower() == 'malicious':
+                # NEW CODE FOR MARI. She needs not to be blocked when we have a detection in slips
+                if address.address == IP_TO_BLOCK:
+                    print "You are not blocked anymore"
+                    ip_blocker.remove_reject_rule(IP_TO_BLOCK)
+                address.alerts.append(IpDetectionAlert(datetime.now(), address, vectors[i]))
+            else:
+                if address.address == IP_TO_BLOCK:
+                    print "You are blocked!"
+                    ip_blocker.add_reject_rule(IP_TO_BLOCK)
+        """
     
     def get_alerts(self):
         """ Returns all the alerts stored in the IP object"""
