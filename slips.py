@@ -449,8 +449,11 @@ class Processor(multiprocessing.Process):
             amount_commas = line.count(',')
             amount_brackets = line.count('{')
             try:
-                line = line.replace('1970-01-00','1970-01-01')
-                line = line.replace('1900-01-00','1900-01-01')
+                # Supossedly not happening in the flows, only the suricata alerts
+                if '1970-01-00' in line:
+                    line = line.replace('1970-01-00','1970-01-01')
+                if '1900-01-00' in line:
+                    line = line.replace('1900-01-00','1900-01-01')
                 data = json.loads(line)
                 data_type = 'json'
             except ValueError:
@@ -548,7 +551,7 @@ class Processor(multiprocessing.Process):
             # Outside the slot
             if self.verbose > 1:
                 print cyan('Time Window Started: {}, finished: {}. ({} connections)'.format(self.slot_starttime, self.slot_endtime, len(self.tuples_in_this_time_slot)))
-                """
+            """
             for tuple4 in self.tuples:
                 tuple = self.get_tuple(tuple4)
                     # Print the tuple and search its whois only if it has more than X amount of letters.
@@ -564,28 +567,27 @@ class Processor(multiprocessing.Process):
                     # After printing the tuple in this time slot, we should not print it again unless we see some of its flows.
                     if tuple.should_be_printed:
                         tuple.dont_print()
-                """
+            """
+            # Process the current finished TW
+            # For each stored flow
+            for tuple4 in self.tuples_in_this_time_slot:
+                tuple = self.get_tuple(tuple4)
+                for column_values in tuple.csv_flows:
+                    tuple.add_new_flow(column_values)
+                    # Detect the first flow of the future timeslot
+                    self.detect(tuple)
+                    # Ask for the IpAddress object for this source IP
+                    ip_address = self.ip_handler.get_ip(column_values['saddr'])
+                    # Store detection result into Ip_address
+                    ip_address.add_detection(tuple.detected_label, tuple.id, tuple.current_size, column_values['starttime'], column_values['daddr'], tuple.get_state_detected_last(), self.tw_index)
+                # Forget the flows in the current TW
+                tuple.csv_flows = []
+                # Forget the letters of the PAST!!!! only work with the letters in this TW
+                tuple.state = ""
+            # Print all the addresses in this time window
+            self.ip_handler.print_addresses(self.slot_starttime, self.slot_endtime, self.tw_index, self.detection_threshold, self.sdw_width, False)
             # If not the last TW. Put the last flow received in the next slot, because it overcome the threshold and it was not processed
             if not last_tw:
-                # Process the current finished TW
-                # For each stored flow
-                #print('= Processing tuples in this TW:')
-                for tuple4 in self.tuples_in_this_time_slot:
-                    tuple = self.get_tuple(tuple4)
-                    for column_values in tuple.csv_flows:
-                        tuple.add_new_flow(column_values)
-                        # Detect the first flow of the future timeslot
-                        self.detect(tuple)
-                        # Ask for the IpAddress object for this source IP
-                        ip_address = self.ip_handler.get_ip(column_values['saddr'])
-                        # Store detection result into Ip_address
-                        ip_address.add_detection(tuple.detected_label, tuple.id, tuple.current_size, column_values['starttime'], column_values['daddr'], tuple.get_state_detected_last(), self.tw_index)
-                    # Forget the flows in the current TW
-                    tuple.csv_flows = []
-                    # Forget the letters of the PAST!!!! only work with the letters in this TW
-                    tuple.state = ""
-                # Print all the addresses in this time window
-                self.ip_handler.print_addresses(self.slot_starttime, self.slot_endtime, self.tw_index, self.detection_threshold, self.sdw_width, False)
                 # Move the time window times
                 self.slot_starttime = last_flow_column_values['starttime']
                 self.slot_endtime = self.slot_starttime + self.slot_width
@@ -599,22 +601,6 @@ class Processor(multiprocessing.Process):
                 self.tuples_in_this_time_slot[tuple.get_id()] = tuple
                 # Add 1 to the time window index 
                 self.tw_index +=1
-            else:
-                # Print all the addresses in this time window
-                self.ip_handler.print_addresses(self.slot_starttime, self.slot_endtime, self.tw_index, self.detection_threshold, self.sdw_width, False)
-            """
-            # After each timeslot finishes forget the tuples that are too big. This is useful when a tuple has a very very long state that is not so useful to us. Later we forget it when we detect it or after a long time.
-            ids_to_delete = []
-            for tuple in self.tuples:
-                # We cut the strings of letters regardless of it being detected before.
-                if self.tuples[tuple].amount_of_flows > 100:
-                    if self.debug > 3:
-                           print 'Delete all the letters because there were more than 100 and it was detected. Start again with this tuple.'
-                    ids_to_delete.append(self.tuples[tuple].get_id())
-            # Actually delete them
-            for id in ids_to_delete:
-                del self.tuples[id]
-            """
         except Exception as inst:
             print 'Problem in process_out_of_time_slot() in class Processor'
             print type(inst)     # the exception instance
@@ -684,8 +670,12 @@ class Processor(multiprocessing.Process):
                                 except ValueError:
                                     logger.error("Invalid timestamp format: {}. Line: {}".format(timeStampFormat, line))
                                 #print 'GET IT: ',flowtime, self.slot_starttime, self.slot_endtime
-                                if flowtime >= self.slot_starttime and flowtime < self.slot_endtime:
-                                    #print 'IN TW: ',flowtime, self.slot_starttime, self.slot_endtime
+                                if flowtime < self.slot_starttime:
+                                    if args.debug > 10:
+                                        print('Flow lost because it belongs to a previous TW: Start:{}, Dur:{:.10f},{},{},{},{},{},{},{},{},{},{},{},{},{}'.format(column_values['starttime'].strftime("%Y-%m-%dT%H:%M:%S.%f"),column_values['dur'],column_values['proto'],column_values['saddr'],column_values['sport'],'<->',column_values['daddr'],column_values['dport'],column_values['state'],0,0,column_values['pkts'],column_values['bytes'],column_values['sbytes'],''))
+                                elif flowtime >= self.slot_starttime and flowtime < self.slot_endtime:
+                                    if args.debug > 10:
+                                        print('Flow in this TW. Start:{}, Dur:{:.10f},{},{},{},{},{},{},{},{},{},{},{},{},{}'.format(column_values['starttime'].strftime("%Y-%m-%dT%H:%M:%S.%f"),column_values['dur'],column_values['proto'],column_values['saddr'],column_values['sport'],'<->',column_values['daddr'],column_values['dport'],column_values['state'],0,0,column_values['pkts'],column_values['bytes'],column_values['sbytes'],''))
                                     # Inside the slot
                                     tuple4 = column_values['saddr']+'-'+column_values['daddr']+'-'+str(column_values['dport'])+'-'+column_values['proto']
                                     tuple = self.get_tuple(tuple4)
@@ -712,6 +702,8 @@ class Processor(multiprocessing.Process):
                                         ip_address.add_detection(tuple.detected_label, tuple.id, tuple.current_size, flowtime,column_values['daddr'], tuple.get_state_detected_last(),self.tw_index)
                                     """
                                 elif flowtime > self.slot_endtime:
+                                    if args.debug > 10:
+                                        print('Flow that changed TW. Start:{}, Dur:{:.10f},{},{},{},{},{},{},{},{},{},{},{},{},{}'.format(column_values['starttime'].strftime("%Y-%m-%dT%H:%M:%S.%f"),column_values['dur'],column_values['proto'],column_values['saddr'],column_values['sport'],'<->',column_values['daddr'],column_values['dport'],column_values['state'],0,0,column_values['pkts'],column_values['bytes'],column_values['sbytes'],''))
                                     #print 'MADE US CHANGE TW: ',flowtime, self.slot_starttime, self.slot_endtime
                                     # Out of time slot
                                     self.process_out_of_time_slot(column_values, last_tw = False)
