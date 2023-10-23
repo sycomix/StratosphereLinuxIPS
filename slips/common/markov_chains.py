@@ -62,14 +62,14 @@ class Matrix(dict):
 def maximum_likelihood_probabilities(states, order=1):
     """ Our own second order Markov Chain implementation """
     initial_matrix = {}
-    initial_vector = {}
     total_transitions = 0
-    amount_of_states = len(states)
     #print 'Receiving {} states to compute the Markov Matrix of {} order'.format(amount_of_states, order)
     # 1st order
     if order == 1:
         # Create matrix
         index = 0
+        initial_vector = {}
+        amount_of_states = len(states)
         while index < amount_of_states:
             state1 = states[index]
             try:
@@ -105,7 +105,7 @@ def maximum_likelihood_probabilities(states, order=1):
                 # Change the style of the matrix
                 matrix[(state1,state2)] = initial_matrix[state1][state2]
         matrix.set_init_vector(init_vector)
-        #print init_vector
-        #for value in matrix:
-        #    print value, matrix[value]
+            #print init_vector
+            #for value in matrix:
+            #    print value, matrix[value]
     return (init_vector, matrix)

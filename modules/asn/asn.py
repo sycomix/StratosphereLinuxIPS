@@ -59,7 +59,7 @@ class Module(Module, multiprocessing.Process):
         """
 
         vd_text = str(int(verbose) * 10 + int(debug))
-        self.outputqueue.put(vd_text + '|' + self.name + '|[' + self.name + '] ' + str(text))
+        self.outputqueue.put(f'{vd_text}|{self.name}|[{self.name}] {str(text)}')
 
     def run(self):
         try:
@@ -79,18 +79,14 @@ class Module(Module, multiprocessing.Process):
                         # If we alredy have the country for this ip, do not ask the file
                         # Check that there is data in the DB, and that the data is not empty, and that our key is not there yet
                         if (data or data == {}) and 'asn' not in data and not ip_addr.is_multicast:
-                            asninfo = self.reader.get(ip)
-                            if asninfo:
+                            if asninfo := self.reader.get(ip):
                                 try:
                                     asnorg = asninfo['autonomous_system_organization']
-                                    data = {}
-                                    data['asn'] = asnorg
+                                    data = {'asn': asnorg}
                                 except KeyError:
-                                    data = {}
-                                    data['asn'] = 'Unknown'
+                                    data = {'asn': 'Unknown'}
                             else:
-                                data = {}
-                                data['asn'] = 'Unknown'
+                                data = {'asn': 'Unknown'}
                             __database__.setInfoForIPs(ip, data)
 
         except KeyboardInterrupt:

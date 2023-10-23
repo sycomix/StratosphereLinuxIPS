@@ -81,7 +81,9 @@ class Module(Module, multiprocessing.Process):
         """
 
         vd_text = str(int(verbose) * 10 + int(debug))
-        self.outputqueue.put(vd_text + '|' + self.name + '|[' + self.name + '] ' + str(text))
+        self.outputqueue.put(
+            f'{vd_text}|' + self.name + '|[' + self.name + '] ' + str(text)
+        )
 
     def run(self):
         try:
@@ -90,18 +92,16 @@ class Module(Module, multiprocessing.Process):
             if self.mode == 'train':
                 # Load the old model if there is one
                 try:
-                    f = open('./modules/MLdetection1/RFmodel.bin', 'rb')
-                    self.print('Found a previous RFmodel.bin file. Trying to load it to update the training', 3, 0)
-                    self.clf = pickle.load(f)
-                    f.close()
+                    with open('./modules/MLdetection1/RFmodel.bin', 'rb') as f:
+                        self.print('Found a previous RFmodel.bin file. Trying to load it to update the training', 3, 0)
+                        self.clf = pickle.load(f)
                 except FileNotFoundError:
                     pass
             elif self.mode == 'test':
                 # Load the model from disk
                 try:
-                    f = open('./modules/MLdetection1/RFmodel.bin', 'rb')
-                    self.clf = pickle.load(f)
-                    f.close()
+                    with open('./modules/MLdetection1/RFmodel.bin', 'rb') as f:
+                        self.clf = pickle.load(f)
                 except FileNotFoundError:
                     self.print(
                         'There is no RF model stored. You need to train first with at least two different labels.')
@@ -205,16 +205,9 @@ class Module(Module, multiprocessing.Process):
             score = self.clf.score(X_flow, y_flow)
             self.print('	Training Score: {}'.format(score))
 
-            # Store the models on disk
-            # f = open('./modules/MLdetection1/RFscaler.bin', 'wb')
-            # data = pickle.dumps(sc)
-            # f.write(data)
-            # f.close()
-
-            f = open('./modules/MLdetection1/RFmodel.bin', 'wb')
-            data = pickle.dumps(self.clf)
-            f.write(data)
-            f.close()
+            with open('./modules/MLdetection1/RFmodel.bin', 'wb') as f:
+                data = pickle.dumps(self.clf)
+                f.write(data)
             self.print('Finish storing the models')
 
         except Exception as inst:
@@ -331,13 +324,7 @@ class Module(Module, multiprocessing.Process):
             # Drop the label if there is one
             y_flow = self.flow['label']
             X_flow = self.flow.drop('label', axis=1)
-            # Scale the flow
-            # self.print('Scale')
-            # X_flow = self.sc.transform(X_flow)
-            # self.print(X_flow)
-
-            pred = self.clf.predict(X_flow)
-            return pred
+            return self.clf.predict(X_flow)
         except Exception as inst:
             # Stop the timer
             self.print('Error in detect()')

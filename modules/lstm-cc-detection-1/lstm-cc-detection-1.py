@@ -78,7 +78,7 @@ class Module(Module, multiprocessing.Process):
         """
 
         vd_text = str(int(verbose) * 10 + int(debug))
-        self.outputqueue.put(vd_text + '|' + self.name + '|[' + self.name + '] ' + str(text))
+        self.outputqueue.put(f'{vd_text}|{self.name}|[{self.name}] {str(text)}')
 
     def set_evidence(self, score, confidence, tupleid='', profileid='', twid=''):
         '''
@@ -89,7 +89,7 @@ class Module(Module, multiprocessing.Process):
         type_evidence = 'C&C channels detection'
         key = 'outTuple' + ':' + tupleid + ':' + type_evidence
         threat_level = 100
-        description = 'RNN C&C channels detection, score: ' + str(score)
+        description = f'RNN C&C channels detection, score: {str(score)}'
         self.print(f'Setting evidence of {description} with threat level {threat_level} and confidence {confidence}. For {profileid}, tuple: {tupleid} on {twid}', 3, 0)
         __database__.setEvidence(key, threat_level, confidence, description, profileid=profileid, twid=twid)
 
@@ -107,10 +107,7 @@ class Module(Module, multiprocessing.Process):
         # Convert each of the stratosphere letters to an integer. There are 50
         #vocabulary = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', ',', '.', '+', '*']
         vocabulary = list("abcdefghiABCDEFGHIrstuvwxyzRSTUVWXYZ1234567890,.+*")
-        int_of_letters = {}
-        for i, letter in enumerate(vocabulary):
-            int_of_letters[letter] = float(i)
-
+        int_of_letters = {letter: float(i) for i, letter in enumerate(vocabulary)}
         # String to test
         # pre_behavioral_model = "88*y*y*h*h*h*h*h*h*h*y*y*h*h*h*y*y*"
 

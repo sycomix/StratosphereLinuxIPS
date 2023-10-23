@@ -47,13 +47,13 @@ df['state'] = df['state'].apply(lambda x : [ord(i) for i in x])
 # Convert the data into the appropriate shape
 # x_data is a list of lists. The 1st dimension is the outtuple, the second the letter. Each letter is now an int value. shape=(num_outuples, features_per_sample)
 x_data = df['state'].to_list()
-print('There are {} outtuples'.format(len(x_data)))
+print(f'There are {len(x_data)} outtuples')
 # y_data is a list of ints that are 0 or 1. One integer per outtupple. shape=(num_outuples, 1)
 y_data = df['label'].to_list()
-print('There are {} labels'.format(len(y_data)))
+print(f'There are {len(y_data)} labels')
 # Search the sample with max len in the training. It should be already cuted by the csv_read function to a max. Here we just check
-max_length = max([len(sublist) for sublist in df.state.to_list()])
-print('The max len of the letters in all outtuples is: {}'.format(max_length))
+max_length = max(len(sublist) for sublist in df.state.to_list())
+print(f'The max len of the letters in all outtuples is: {max_length}')
 
 
 # Padding.
@@ -77,61 +77,59 @@ train_y_data = y_data
 
 # Change the number for each experiment
 experiment_number = '10'
-f = open('data_for_experiment_' + experiment_number + '.md', 'w+')
-f.write('Summary of Experiment Number ' + experiment_number + '\n')
-f.write('Date: ' + str(datetime.now()) + '\n\n')
+with open(f'data_for_experiment_{experiment_number}.md', 'w+') as f:
+    f.write(f'Summary of Experiment Number {experiment_number}' + '\n')
+    f.write(f'Date: {str(datetime.now())}' + '\n\n')
 
-# Hyperparameters
-# Real data
-# Store the dimensions
-batch_size = 500 # group of outtuples as a batch
-num_outtuples = len(padded_x_data) # number_of_outtuples in each batch or in general?
-features_per_sample = max_length # # letters per outputple
-num_epochs = 5 
-# Max value of all ord(letter)
-max_ord_value = max([max(sublist) for sublist in x_data]) + 1
-# Each letter can be a number from 41 (a) to 122 (z)
+    # Hyperparameters
+    # Real data
+    # Store the dimensions
+    batch_size = 500 # group of outtuples as a batch
+    num_outtuples = len(padded_x_data) # number_of_outtuples in each batch or in general?
+    features_per_sample = max_length # # letters per outputple
+    num_epochs = 5
+    # Max value of all ord(letter)
+    max_ord_value = max(max(sublist) for sublist in x_data) + 1
+    # Each letter can be a number from 41 (a) to 122 (z)
 
-# Write
-f.write('Batch size: ' + str(batch_size) + '\n')
-f.write('Num outtuples: ' + str(num_outtuples) + '\n')
-f.write('Max num of letters: ' + str(features_per_sample) + '\n')
-f.write('Num epochs: ' + str(num_epochs) + '\n')
+    # Write
+    f.write(f'Batch size: {batch_size}' + '\n')
+    f.write(f'Num outtuples: {num_outtuples}' + '\n')
+    f.write(f'Max num of letters: {str(features_per_sample)}' + '\n')
+    f.write(f'Num epochs: {num_epochs}' + '\n')
 
 
-# Create the model of RNN
-input_shape = (num_outtuples, features_per_sample)
-model = Sequential()
-# Masking adds a padding and a special vector to ignore the padding values.
-#model.add(Masking(input_shape = input_shape, mask_value = 0.0))
-model.add(Embedding(max_ord_value, 500, input_length=features_per_sample))
-# GRU is the main RNN layer
-model.add(GRU(256, return_sequences=True, input_shape=(num_outtuples, features_per_sample)))
-model.add(GRU(512, return_sequences=False, input_shape=(num_outtuples, features_per_sample)))
-# Fully connected layer with 1 neuron output
-model.add(Dense(1))
-# Final output value between 0 and 1 as probability
-model.add(Activation('sigmoid'))
-model.compile(loss='binary_crossentropy', optimizer = 'rmsprop', metrics=['accuracy'])
+    # Create the model of RNN
+    input_shape = (num_outtuples, features_per_sample)
+    model = Sequential()
+    # Masking adds a padding and a special vector to ignore the padding values.
+    #model.add(Masking(input_shape = input_shape, mask_value = 0.0))
+    model.add(Embedding(max_ord_value, 500, input_length=features_per_sample))
+    # GRU is the main RNN layer
+    model.add(GRU(256, return_sequences=True, input_shape=(num_outtuples, features_per_sample)))
+    model.add(GRU(512, return_sequences=False, input_shape=(num_outtuples, features_per_sample)))
+    # Fully connected layer with 1 neuron output
+    model.add(Dense(1))
+    # Final output value between 0 and 1 as probability
+    model.add(Activation('sigmoid'))
+    model.compile(loss='binary_crossentropy', optimizer = 'rmsprop', metrics=['accuracy'])
 
-# Write
+    # Write
 
-# Train the model
-# This is already separating in trainign and validation
-history = model.fit(train_x_data, train_y_data, epochs=num_epochs, batch_size=batch_size, validation_split=0.3, verbose=1, shuffle=True)
-f.write('Model Summary: ' + str(num_epochs) + '\n')
-f.write(str(model.summary()))
-f.write('\n\n')
+    # Train the model
+    # This is already separating in trainign and validation
+    history = model.fit(train_x_data, train_y_data, epochs=num_epochs, batch_size=batch_size, validation_split=0.3, verbose=1, shuffle=True)
+    f.write(f'Model Summary: {num_epochs}' + '\n')
+    f.write(str(model.summary()))
+    f.write('\n\n')
 
-f.write('Model last results\n')
-f.write('\tTraining Accuracy: ' + str(history.history['acc'][-1]) + '\n')
-f.write('\tTraining Loss: ' + str(history.history['loss'][-1]) + '\n')
-f.write('\tValidation Accuracy: ' + str(history.history['val_acc'][-1]) + '\n')
-f.write('\tValidation Loss: ' + str(history.history['val_loss'][-1]) + '\n')
-f.close()
-
+    f.write('Model last results\n')
+    f.write('\tTraining Accuracy: ' + str(history.history['acc'][-1]) + '\n')
+    f.write('\tTraining Loss: ' + str(history.history['loss'][-1]) + '\n')
+    f.write('\tValidation Accuracy: ' + str(history.history['val_acc'][-1]) + '\n')
+    f.write('\tValidation Loss: ' + str(history.history['val_loss'][-1]) + '\n')
 # Save the model to disk
-model.save('lstm_model-e' + experiment_number +'.h5')
+model.save(f'lstm_model-e{experiment_number}.h5')
 
 # To plot the results
 
@@ -153,7 +151,7 @@ plt.title('Training and validation loss')
 plt.legend()
 #plt.show()
 
-plt.savefig('plot_e_' + experiment_number + '.png')
+plt.savefig(f'plot_e_{experiment_number}.png')
 
 
 

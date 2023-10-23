@@ -99,7 +99,7 @@ class Module(Module, multiprocessing.Process):
         """
 
         vd_text = str(int(verbose) * 10 + int(debug))
-        self.outputqueue.put(vd_text + '|' + self.name + '|[' + self.name + '] ' + str(text))
+        self.outputqueue.put(f'{vd_text}|{self.name}|[{self.name}] {str(text)}')
 
     def set_evidence_ssh_successful(self, profileid, twid, saddr, daddr, size, by, ip_state='ip'):
         """
@@ -108,11 +108,11 @@ class Module(Module, multiprocessing.Process):
         a better way to show it.
         The threat_level is 0.01 to show that this is not a detection
         """
-        type_evidence = 'SSHSuccessful-by-' + by
-        key = 'ip:' + saddr + ':' + type_evidence
+        type_evidence = f'SSHSuccessful-by-{by}'
+        key = f'ip:{saddr}:{type_evidence}'
         threat_level = 0.01
         confidence = 0.5
-        description = 'SSH Successful to IP :' + daddr + '. From IP ' + saddr + '. Size: ' + str(size) + '. Detection Model ' + by
+        description = f'SSH Successful to IP :{daddr}. From IP {saddr}. Size: {str(size)}. Detection Model {by}'
         if not twid:
             twid = ''
         __database__.setEvidence(key, threat_level, confidence, description, profileid=profileid, twid=twid)
@@ -124,10 +124,10 @@ class Module(Module, multiprocessing.Process):
         Returns nothing
         '''
         type_evidence = 'LongConnection'
-        key = ip_state + ':' + ip + ':' + type_evidence
+        key = f'{ip_state}:{ip}:{type_evidence}'
         threat_level = 10
         confidence = 0.5
-        description = 'Long Connection ' + str(duration)
+        description = f'Long Connection {str(duration)}'
         if not twid:
             twid = ''
         __database__.setEvidence(key, threat_level, confidence, description, profileid=profileid, twid=twid)
@@ -228,37 +228,23 @@ class Module(Module, multiprocessing.Process):
                         uid = flow_dict['uid']
                         # First try the Zeek method
                         auth_success = flow_dict['auth_success']
-                        # self.print(f'Received SSH Flow: {flow_dict}')
-                        if auth_success:
-                            # self.print(f'NEW Successsul by Zeek SSH recived: {data}', 1, 0)
-                            time.sleep(10)
-                            original_ssh_flow = __database__.get_flow(profileid, twid, uid)
-                            original_flow_uid = next(iter(original_ssh_flow))
-                            if original_ssh_flow[original_flow_uid]:
-                                ssh_flow_dict = json.loads(original_ssh_flow[original_flow_uid])
-                                daddr = ssh_flow_dict['daddr']
-                                saddr = ssh_flow_dict['saddr']
-                                size = ssh_flow_dict['allbytes']
+                        # self.print(f'NEW Successsul by Zeek SSH recived: {data}', 1, 0)
+                        time.sleep(10)
+                        original_ssh_flow = __database__.get_flow(profileid, twid, uid)
+                        original_flow_uid = next(iter(original_ssh_flow))
+                        if original_ssh_flow[original_flow_uid]:
+                            ssh_flow_dict = json.loads(original_ssh_flow[original_flow_uid])
+                            daddr = ssh_flow_dict['daddr']
+                            saddr = ssh_flow_dict['saddr']
+                            size = ssh_flow_dict['allbytes']
+                            if auth_success:
                                 self.set_evidence_ssh_successful(profileid, twid, saddr, daddr, size, by='Zeek')
-                        else:
-                            # Second try the Stratosphere method method
-                            time.sleep(10)
-                            original_ssh_flow = __database__.get_flow(profileid, twid, uid)
-                            original_flow_uid = next(iter(original_ssh_flow))
-                            if original_ssh_flow[original_flow_uid]:
-                                ssh_flow_dict = json.loads(original_ssh_flow[original_flow_uid])
-                                daddr = ssh_flow_dict['daddr']
-                                saddr = ssh_flow_dict['saddr']
-                                size = ssh_flow_dict['allbytes']
-                                if size > self.ssh_succesful_detection_threshold:
-                                    # self.print(f'NEW Successsul by Stratosphere SSH recived: {data}', 1, 0)
-                                    # Set the evidence because there is no
-                                    # easier # way to show how slips detected
-                                    # the successful ssh and not Zeek
-                                    self.set_evidence_ssh_successful(profileid, twid, saddr, daddr, size, by='Slips')
-                                else:
-                                    # self.print(f'NO Successsul SSH recived: {data}', 1, 0)
-                                    pass
+                            elif size > self.ssh_succesful_detection_threshold:
+                                # self.print(f'NEW Successsul by Stratosphere SSH recived: {data}', 1, 0)
+                                # Set the evidence because there is no
+                                # easier # way to show how slips detected
+                                # the successful ssh and not Zeek
+                                self.set_evidence_ssh_successful(profileid, twid, saddr, daddr, size, by='Slips')
         except KeyboardInterrupt:
             return True
         except Exception as inst:

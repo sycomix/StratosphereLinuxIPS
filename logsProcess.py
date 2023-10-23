@@ -72,7 +72,9 @@ class LogsProcess(multiprocessing.Process):
         except (configparser.NoOptionError, configparser.NoSectionError, NameError):
             # There is a conf, but there is no option, or no section or no configuration file specified
             self.report_time = 5
-        self.outputqueue.put('01|logs|Logs Process configured to report every: {} seconds'.format(self.report_time))
+        self.outputqueue.put(
+            f'01|logs|Logs Process configured to report every: {self.report_time} seconds'
+        )
 
     def print(self, text, verbose=1, debug=0):
         """ 
@@ -87,7 +89,7 @@ class LogsProcess(multiprocessing.Process):
         If not specified, the minimum verbosity level required is 1, and the minimum debugging level is 0
         """
         vd_text = str(int(verbose) * 10 + int(debug))
-        self.outputqueue.put(vd_text + '|' + self.name + '|[' + self.name + '] ' + str(text))
+        self.outputqueue.put(f'{vd_text}|{self.name}|[{self.name}] {str(text)}')
 
     def run(self):
         try:
@@ -95,8 +97,8 @@ class LogsProcess(multiprocessing.Process):
             # TODO. Do not create the folder if there is no data? (not sure how to)
             self.mainfoldername = datetime.now().strftime('%Y-%m-%d--%H:%M:%S')
             if not os.path.exists(self.mainfoldername):
-                    os.makedirs(self.mainfoldername)
-                    self.print('Using the folder {} for storing results.'.format(self.mainfoldername))
+                os.makedirs(self.mainfoldername)
+                self.print(f'Using the folder {self.mainfoldername} for storing results.')
             # go into this folder
             os.chdir(self.mainfoldername)
 
@@ -111,13 +113,12 @@ class LogsProcess(multiprocessing.Process):
                 if 'stop_process' in line:
                     timer.shutdown()
                     return True
-                elif 'stop' != line:
+                elif line != 'stop':
                     # CHECK if we ever go here...
                     # we are not processing input from the queue yet
                     # without this line the complete output thread does not work!!
                     # WTF???????
                     print(line)
-                    pass
                 else:
                     # CHECK if we ever go here...
                     # Here we should still print the lines coming in the input for a while after receiving a 'stop'. We don't know how to do it.
@@ -135,8 +136,8 @@ class LogsProcess(multiprocessing.Process):
             # Stop the timer
             timer.shutdown()
             self.outputqueue.put('01|logs|\t[Logs] Error with LogsProcess')
-            self.outputqueue.put('01|logs|\t[Logs] {}'.format(type(inst)))
-            self.outputqueue.put('01|logs|\t[Logs] {}'.format(inst))
+            self.outputqueue.put(f'01|logs|\t[Logs] {type(inst)}')
+            self.outputqueue.put(f'01|logs|\t[Logs] {inst}')
             sys.exit(1)
 
     def createProfileFolder(self, profileid):
@@ -149,7 +150,7 @@ class LogsProcess(multiprocessing.Process):
             os.makedirs(profilefolder)
             ip = profileid.split(self.fieldseparator)[1]
             # If we create the folder, add once there the profileid. We have to do this here if we want to do it once.
-            self.addDataToFile(profilefolder + '/' + 'ProfileData.txt', 'Profiled IP: ' + ip)
+            self.addDataToFile(f'{profilefolder}/ProfileData.txt', f'Profiled IP: {ip}')
 
             # Add more data into the file that is only for the global profile of this IP, without any time window
 
@@ -157,10 +158,16 @@ class LogsProcess(multiprocessing.Process):
             ip_info = __database__.getIPData(ip)
             printable_ip_info = ''
             if ip_info:
-                printable_ip_info = ', '.join('{} {}'.format(k, v) for k, v in ip_info.items())
-                self.addDataToFile(profilefolder + '/' + 'ProfileData.txt', 'Info: ', file_mode='a+')
+                printable_ip_info = ', '.join(f'{k} {v}' for k, v in ip_info.items())
+                self.addDataToFile(
+                    f'{profilefolder}/ProfileData.txt', 'Info: ', file_mode='a+'
+                )
                 for data in printable_ip_info.split(','):
-                    self.addDataToFile(profilefolder + '/' + 'ProfileData.txt', '\t' + data.strip(), file_mode='a+')
+                    self.addDataToFile(
+                        f'{profilefolder}/ProfileData.txt',
+                        '\t' + data.strip(),
+                        file_mode='a+',
+                    )
         return profilefolder
 
     def addDataToFile(self, filename, data, file_mode='w+', data_type='txt', data_mode='text'):
@@ -177,18 +184,16 @@ class LogsProcess(multiprocessing.Process):
         try:
             if data_mode == 'text':
                 data = data + '\n'
-            # The other mode is 'raw' where we do not add the \n 
+            # The other mode is 'raw' where we do not add the \n
             try:
                 if data_type == 'lines':
                     # We received a bunch of lines all together. Just write them
                     filename.writelines(data)
-                    filename.flush()
-                    return filename
                 else:
                 # The other mode is 'line' where we just write one line
                     filename.write(data)
-                    filename.flush()
-                    return filename
+                filename.flush()
+                return filename
             except (NameError, AttributeError) as e:
                 # The file was not opened yet
                 fileobj = open(filename, file_mode)
@@ -220,8 +225,7 @@ class LogsProcess(multiprocessing.Process):
                         for est_notest in ['Established', 'NotEstablished']:
                             # 'As a client, Dst Ports we connected with TCP Established flows:'
                             key_name = src_or_dst + port_or_ip + client_or_server + protocol + est_notest
-                            sentence = as_cl_ser + ' ' + src_or_dst + ' ' + port_or_ip + ' we connected with ' + \
-                                       protocol + ' ' + est_notest + ' flow:'
+                            sentence = f'{as_cl_ser} {src_or_dst} {port_or_ip} we connected with {protocol} {est_notest} flow:'
                             flow_types[key_name] = sentence
         return flow_types
 

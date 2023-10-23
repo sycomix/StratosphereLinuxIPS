@@ -89,7 +89,7 @@ class Database(object):
         """
 
         vd_text = str(int(verbose) * 10 + int(debug))
-        self.outputqueue.put(vd_text + '|' + self.name + '|[' + self.name + '] ' + str(text))
+        self.outputqueue.put(f'{vd_text}|{self.name}|[{self.name}] {str(text)}')
 
     def setOutputQueue(self, outputqueue):
         """ Set the output queue"""
@@ -120,29 +120,23 @@ class Database(object):
 
         except redis.exceptions.ResponseError as inst:
             self.outputqueue.put('00|database|Error in addProfile in database.py')
-            self.outputqueue.put('00|database|{}'.format(type(inst)))
-            self.outputqueue.put('00|database|{}'.format(inst))
+            self.outputqueue.put(f'00|database|{type(inst)}')
+            self.outputqueue.put(f'00|database|{inst}')
 
     def getProfileIdFromIP(self, daddr_as_obj):
         """ Receive an IP and we want the profileid"""
         try:
-            temp_id = 'profile' + self.separator + str(daddr_as_obj)
-            data = self.r.sismember('profiles', temp_id)
-            if data:
-                return temp_id
-            return False
+            temp_id = f'profile{self.separator}{str(daddr_as_obj)}'
+            return temp_id if (data := self.r.sismember('profiles', temp_id)) else False
         except redis.exceptions.ResponseError as inst:
             self.outputqueue.put('00|database|error in addprofileidfromip in database.py')
-            self.outputqueue.put('00|database|{}'.format(type(inst)))
-            self.outputqueue.put('00|database|{}'.format(inst))
+            self.outputqueue.put(f'00|database|{type(inst)}')
+            self.outputqueue.put(f'00|database|{inst}')
 
     def getProfiles(self):
         """ Get a list of all the profiles """
         profiles = self.r.smembers('profiles')
-        if profiles != set():
-            return profiles
-        else:
-            return {}
+        return profiles if profiles != set() else {}
 
     def getProfileData(self, profileid):
         """ Get all the data for this particular profile.
@@ -150,39 +144,33 @@ class Database(object):
         A json formated representation of the hashmap with all the data of the profile
         """
         profile = self.r.hgetall(profileid)
-        if profile != set():
-            return profile
-        else:
-            return False
+        return profile if profile != set() else False
 
     def getTWsfromProfile(self, profileid):
         """
         Receives a profile id and returns the list of all the TW in that profile
         Returns a list with data or an empty list
         """
-        data = self.r.zrange('tws' + profileid, 0, -1, withscores=True)
-        return data
+        return self.r.zrange(f'tws{profileid}', 0, -1, withscores=True)
 
     def getamountTWsfromProfile(self, profileid):
         """
         Receives a profile id and returns the list of all the TW in that profile
 
         """
-        return len(self.r.zrange('tws' + profileid, 0, -1, withscores=True))
+        return len(self.r.zrange(f'tws{profileid}', 0, -1, withscores=True))
 
     def getSrcIPsfromProfileTW(self, profileid, twid):
         """
         Get the src ip for a specific TW for a specific profileid
         """
-        data = self.r.hget(profileid + self.separator + twid, 'SrcIPs')
-        return data
+        return self.r.hget(profileid + self.separator + twid, 'SrcIPs')
 
     def getDstIPsfromProfileTW(self, profileid, twid):
         """
         Get the dst ip for a specific TW for a specific profileid
         """
-        data = self.r.hget(profileid + self.separator + twid, 'DstIPs')
-        return data
+        return self.r.hget(profileid + self.separator + twid, 'DstIPs')
 
     def getT2ForProfileTW(self, profileid, twid, tupleid, tuple_key: str):
         """
@@ -202,9 +190,9 @@ class Database(object):
                 return False, False
         except Exception as e:
             self.outputqueue.put('01|database|[DB] Error in getT2ForProfileTW in database.py')
-            self.outputqueue.put('01|database|[DB] {}'.format(type(e)))
-            self.outputqueue.put('01|database|[DB] {}'.format(e))
-            self.outputqueue.put("01|profiler|[Profile] {}".format(traceback.format_exc()))
+            self.outputqueue.put(f'01|database|[DB] {type(e)}')
+            self.outputqueue.put(f'01|database|[DB] {e}')
+            self.outputqueue.put(f"01|profiler|[Profile] {traceback.format_exc()}")
 
     def hasProfile(self, profileid):
         """ Check if we have the given profile """
@@ -216,13 +204,11 @@ class Database(object):
 
     def getLastTWforProfile(self, profileid):
         """ Return the last TW id and the time for the given profile id """
-        data = self.r.zrange('tws' + profileid, -1, -1, withscores=True)
-        return data
+        return self.r.zrange(f'tws{profileid}', -1, -1, withscores=True)
 
     def getFirstTWforProfile(self, profileid):
         """ Return the first TW id and the time for the given profile id """
-        data = self.r.zrange('tws' + profileid, 0, 0, withscores=True)
-        return data
+        return self.r.zrange(f'tws{profileid}', 0, 0, withscores=True)
 
     def getTWforScore(self, profileid, time):
         """
@@ -233,10 +219,19 @@ class Database(object):
         """
         # [-1] so we bring the last TW that matched this time.
         try:
-            data = self.r.zrangebyscore('tws' + profileid, float('-inf'), float(time), withscores=True, start=0, num=-1)[-1]
+            data = self.r.zrangebyscore(
+                f'tws{profileid}',
+                float('-inf'),
+                float(time),
+                withscores=True,
+                start=0,
+                num=-1,
+            )[-1]
         except IndexError:
             # We dont have any last tw?
-            data = self.r.zrangebyscore('tws' + profileid, 0, float(time), withscores=True, start=0, num=-1)
+            data = self.r.zrangebyscore(
+                f'tws{profileid}', 0, float(time), withscores=True, start=0, num=-1
+            )
         return data
 
     def addNewOlderTW(self, profileid, startoftw):
@@ -255,16 +250,17 @@ class Database(object):
                 # Very weird error, since the first TW MUST exist. What are we doing here?
                 pass
             # Add the new TW to the index of TW
-            data = {}
-            data[str(twid)] = float(startoftw)
-            self.r.zadd('tws' + profileid, data)
-            self.outputqueue.put('04|database|[DB]: Created and added to DB the new older TW with id {}. Time: {} '.format(twid, startoftw))
+            data = {str(twid): float(startoftw)}
+            self.r.zadd(f'tws{profileid}', data)
+            self.outputqueue.put(
+                f'04|database|[DB]: Created and added to DB the new older TW with id {twid}. Time: {startoftw} '
+            )
             # The creation of a TW now does not imply that it was modified. You need to put data to mark is at modified
             return twid
         except redis.exceptions.ResponseError as e:
             self.outputqueue.put('01|database|error in addNewOlderTW in database.py')
-            self.outputqueue.put('01|database|{}'.format(type(e)))
-            self.outputqueue.put('01|database|{}'.format(e))
+            self.outputqueue.put(f'01|database|{type(e)}')
+            self.outputqueue.put(f'01|database|{e}')
 
     def addNewTW(self, profileid, startoftw):
         try:
@@ -284,49 +280,39 @@ class Database(object):
                 # There is no first TW, create it
                 twid = 'timewindow1'
             # Add the new TW to the index of TW
-            data = {}
-            data[str(twid)] = float(startoftw)
-            self.r.zadd('tws' + profileid, data)
-            self.outputqueue.put('04|database|[DB]: Created and added to DB for profile {} on TW with id {}. Time: {} '.format(profileid, twid, startoftw))
+            data = {twid: float(startoftw)}
+            self.r.zadd(f'tws{profileid}', data)
+            self.outputqueue.put(
+                f'04|database|[DB]: Created and added to DB for profile {profileid} on TW with id {twid}. Time: {startoftw} '
+            )
             # The creation of a TW now does not imply that it was modified. You need to put data to mark is at modified
             return twid
         except redis.exceptions.ResponseError as e:
             self.outputqueue.put('01|database|Error in addNewTW')
-            self.outputqueue.put('01|database|{}'.format(e))
+            self.outputqueue.put(f'01|database|{e}')
 
     def getTimeTW(self, profileid, twid):
         """ Return the time when this TW in this profile was created """
-        # Get all the TW for this profile
-        # We need to encode it to 'search' because the data in the sorted set is encoded
-        data = self.r.zscore('tws' + profileid, twid.encode('utf-8'))
-        return data
+        return self.r.zscore(f'tws{profileid}', twid.encode('utf-8'))
 
     def getAmountTW(self, profileid):
         """ Return the amount of tw for this profile id """
-        return self.r.zcard('tws' + profileid)
+        return self.r.zcard(f'tws{profileid}')
 
     def getModifiedTWSinceTime(self, time):
         """ Return all the list of modified tw since a certain time"""
         data = self.r.zrangebyscore('ModifiedTW', time, float('+inf'), withscores=True)
-        if not data:
-            return []
-        return data
+        return [] if not data else data
 
     def getModifiedTW(self):
         """ Return all the list of modified tw """
         data = self.r.zrange('ModifiedTW', 0, -1, withscores=True)
-        if not data:
-            return []
-        return data
+        return [] if not data else data
 
     def wasProfileTWModified(self, profileid, twid):
         """ Retrieve from the db if this TW of this profile was modified """
         data = self.r.zrank('ModifiedTW', profileid + self.separator + twid)
-        if not data:
-            # If for some reason we don't have the modified bit set,
-            # then it was not modified.
-            return False
-        return True
+        return bool(data)
 
     def getModifiedTWTime(self, profileid, twid):
         """
@@ -361,14 +347,11 @@ class Database(object):
         3- To update the internal time of slips
         4- To check if we should 'close' some TW
         """
-        # Add this tw to the list of modified TW, so others can
-        # check only these later
-        data = {}
         timestamp = time.time()
-        data[profileid + self.separator + twid] = float(timestamp)
+        data = {profileid + self.separator + twid: float(timestamp)}
         self.r.zadd('ModifiedTW', data)
 
-        self.publish('tw_modified', profileid + ':' + twid)
+        self.publish('tw_modified', f'{profileid}:{twid}')
 
         # Check if we should close some TW
         self.check_TW_to_close()
@@ -445,47 +428,53 @@ class Database(object):
             # Ask the threat intelligence modules, using a channel, that we need info about this IP
             # The threat intelligence module will process it and store the info back in IPsInfo
             # Therefore both ips will be checked for each flow
-            self.publish('give_threat_intelligence', str(daddr) + '-' + str(profileid) + '-' + str(twid) + '-' + 'dstip')
-            self.publish('give_threat_intelligence', str(saddr) + '-' + str(profileid) + '-' + str(twid) + '-' + 'srcip')
-
-            if role == 'Client':
-                # The profile corresponds to the src ip that received this flow
-                # The dstip is here the one receiving data from your profile
-                # So check the dst ip
-                pass
-
-            elif role == 'Server':
-                # The profile corresponds to the dst ip that received this flow
-                # The srcip is here the one sending data to your profile
-                # So check the src ip
-                pass
+            self.publish(
+                'give_threat_intelligence',
+                f'{str(daddr)}-{str(profileid)}-{str(twid)}-dstip',
+            )
+            self.publish(
+                'give_threat_intelligence',
+                f'{str(saddr)}-{str(profileid)}-{str(twid)}-srcip',
+            )
 
             #############
             # 1- Count the dstips, and store the dstip in the db of this profile+tw
-            self.print('add_ips(): As a {}, add the {} IP {} to profile {}, twid {}'.format(role, type_host_key, str(ip_as_obj), profileid, twid), 0, 5)
+            self.print(
+                f'add_ips(): As a {role}, add the {type_host_key} IP {str(ip_as_obj)} to profile {profileid}, twid {twid}',
+                0,
+                5,
+            )
             # Get the hash of the timewindow
             hash_id = profileid + self.separator + twid
             # Get the DstIPs data for this tw in this profile
             # The format is data['1.1.1.1'] = 3
-            data = self.r.hget(hash_id, type_host_key + 'IPs')
+            data = self.r.hget(hash_id, f'{type_host_key}IPs')
             if not data:
                 data = {}
             try:
                 # Convert the json str to a dictionary
                 data = json.loads(data)
                 # Add 1 because we found this ip again
-                self.print('add_ips(): Not the first time for this addr. Add 1 to {}'.format(str(ip_as_obj)), 0, 5)
+                self.print(
+                    f'add_ips(): Not the first time for this addr. Add 1 to {str(ip_as_obj)}',
+                    0,
+                    5,
+                )
                 data[str(ip_as_obj)] += 1
                 # Convet the dictionary to json
                 data = json.dumps(data)
             except (TypeError, KeyError) as e:
                 # There was no previous data stored in the DB
-                self.print('add_ips(): First time for addr {}. Count as 1'.format(str(ip_as_obj)), 0, 5)
+                self.print(
+                    f'add_ips(): First time for addr {str(ip_as_obj)}. Count as 1',
+                    0,
+                    5,
+                )
                 data[str(ip_as_obj)] = 1
                 # Convet the dictionary to json
                 data = json.dumps(data)
             # Store the dstips in the dB
-            self.r.hset(hash_id, type_host_key + 'IPs', str(data))
+            self.r.hset(hash_id, f'{type_host_key}IPs', data)
 
             #############
             # 2- Store, for each ip:
@@ -499,7 +488,11 @@ class Database(object):
             prev_data = self.getDataFromProfileTW(profileid, twid, type_host_key, summaryState, proto, role, 'IPs')
             try:
                 innerdata = prev_data[str(ip_as_obj)]
-                self.print('add_ips(): Adding for dst port {}. PRE Data: {}'.format(dport, innerdata), 0, 3)
+                self.print(
+                    f'add_ips(): Adding for dst port {dport}. PRE Data: {innerdata}',
+                    0,
+                    3,
+                )
                 # We had this port
                 # We need to add all the data
                 innerdata['totalflows'] += 1
@@ -514,17 +507,24 @@ class Database(object):
                     temp_dstports[str(dport)] = int(pkts)
                 innerdata['dstports'] = temp_dstports
                 prev_data[str(ip_as_obj)] = innerdata
-                self.print('add_ips() Adding for dst port {}. POST Data: {}'.format(dport, innerdata), 0, 3)
+                self.print(
+                    f'add_ips() Adding for dst port {dport}. POST Data: {innerdata}',
+                    0,
+                    3,
+                )
             except KeyError:
                 # First time for this flow
-                innerdata = {}
-                innerdata['totalflows'] = 1
+                innerdata = {'totalflows': 1}
                 innerdata['totalpkt'] = int(pkts)
                 innerdata['totalbytes'] = int(totbytes)
                 temp_dstports = {}
                 temp_dstports[str(dport)] = int(pkts)
                 innerdata['dstports'] = temp_dstports
-                self.print('add_ips() First time for dst port {}. Data: {}'.format(dport, innerdata), 0, 3)
+                self.print(
+                    f'add_ips() First time for dst port {dport}. Data: {innerdata}',
+                    0,
+                    3,
+                )
                 prev_data[str(ip_as_obj)] = innerdata
 
             ###########
@@ -532,15 +532,15 @@ class Database(object):
             # Convert the dictionary to json
             data = json.dumps(prev_data)
             # Create the key for storing
-            key_name = type_host_key + 'IPs' + role + proto.upper() + summaryState
+            key_name = f'{type_host_key}IPs{role}{proto.upper()}{summaryState}'
             # Store this data in the profile hash
-            self.r.hset(profileid + self.separator + twid, key_name, str(data))
+            self.r.hset(profileid + self.separator + twid, key_name, data)
             # Mark the tw as modified
             self.markProfileTWAsModified(profileid, twid, starttime)
         except Exception as inst:
             self.outputqueue.put('01|database|[DB] Error in add_ips in database.py')
-            self.outputqueue.put('01|database|[DB] Type inst: {}'.format(type(inst)))
-            self.outputqueue.put('01|database|[DB] Inst: {}'.format(inst))
+            self.outputqueue.put(f'01|database|[DB] Type inst: {type(inst)}')
+            self.outputqueue.put(f'01|database|[DB] Inst: {inst}')
 
     def refresh_data_tuples(self):
         """
@@ -561,7 +561,11 @@ class Database(object):
         elif role == 'Server':
             tuple_key = 'InTuples'
         try:
-            self.print('Add_tuple called with profileid {}, twid {}, tupleid {}, data {}'.format(profileid, twid, tupleid, data_tuple), 0, 5)
+            self.print(
+                f'Add_tuple called with profileid {profileid}, twid {twid}, tupleid {tupleid}, data {data_tuple}',
+                0,
+                5,
+            )
             # Get all the InTuples or OutTuples for this profileid in this TW
             hash_id = profileid + self.separator + twid
             data = self.r.hget(hash_id, tuple_key)
@@ -575,7 +579,11 @@ class Database(object):
             try:
                 stored_tuple = data[tupleid]
                 # Disasemble the input
-                self.print('Not the first time for tuple {} as an {} for {} in TW {}. Add the symbol: {}. Store previous_times: {}. Prev Data: {}'.format(tupleid, tuple_key, profileid, twid, symbol_to_add, previous_two_timestamps, data), 0, 5)
+                self.print(
+                    f'Not the first time for tuple {tupleid} as an {tuple_key} for {profileid} in TW {twid}. Add the symbol: {symbol_to_add}. Store previous_times: {previous_two_timestamps}. Prev Data: {data}',
+                    0,
+                    5,
+                )
                 # Get the last symbols of letters in the DB
                 prev_symbols = data[tupleid][0]
                 # Add it to form the string of letters
@@ -584,29 +592,33 @@ class Database(object):
                 new_data = (new_symbol, previous_two_timestamps)
                 # analyze behavioral model with lstm model if the length is divided by 3 - so we send when there is 3 more characters added
                 if len(new_symbol) % 3 == 0:
-                    self.publish('new_letters', new_symbol + '-' + profileid + '-' + twid + '-' + str(tupleid))
+                    self.publish('new_letters', f'{new_symbol}-{profileid}-{twid}-{str(tupleid)}')
 
                 data[tupleid] = new_data
-                self.print('\tLetters so far for tuple {}: {}'.format(tupleid, new_symbol), 0, 6)
+                self.print(f'\tLetters so far for tuple {tupleid}: {new_symbol}', 0, 6)
                 data = json.dumps(data)
             except (TypeError, KeyError) as e:
                 # TODO check that this condition is triggered correctly only for the first case and not the rest after...
                 # There was no previous data stored in the DB
-                self.print('First time for tuple {} as an {} for {} in TW {}'.format(tupleid, tuple_key, profileid, twid), 0, 5)
+                self.print(
+                    f'First time for tuple {tupleid} as an {tuple_key} for {profileid} in TW {twid}',
+                    0,
+                    5,
+                )
                 # Here get the info from the ipinfo key
                 new_data = (symbol_to_add, previous_two_timestamps)
                 data[tupleid] = new_data
                 # Convet the dictionary to json
                 data = json.dumps(data)
             # Store the new data on the db
-            self.r.hset(hash_id, tuple_key, str(data))
+            self.r.hset(hash_id, tuple_key, data)
             # Mark the tw as modified
             self.markProfileTWAsModified(profileid, twid, starttime)
         except Exception as inst:
             self.outputqueue.put('01|database|[DB] Error in add_tuple in database.py')
-            self.outputqueue.put('01|database|[DB] Type inst: {}'.format(type(inst)))
-            self.outputqueue.put('01|database|[DB] Inst: {}'.format(inst))
-            self.outputqueue.put('01|database|[DB] {}'.format(traceback.format_exc()))
+            self.outputqueue.put(f'01|database|[DB] Type inst: {type(inst)}')
+            self.outputqueue.put(f'01|database|[DB] Inst: {inst}')
+            self.outputqueue.put(f'01|database|[DB] {traceback.format_exc()}')
 
     def add_port(self, profileid: str, twid: str, ip_address: str, columns: dict, role: str, port_type: str):
         """

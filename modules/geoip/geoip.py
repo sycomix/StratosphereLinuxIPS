@@ -64,7 +64,7 @@ class Module(Module, multiprocessing.Process):
         """
 
         vd_text = str(int(verbose) * 10 + int(debug))
-        self.outputqueue.put(vd_text + '|' + self.name + '|[' + self.name + '] ' + str(text))
+        self.outputqueue.put(f'{vd_text}|{self.name}|[{self.name}] {str(text)}')
 
     def run(self):
         try:
@@ -84,23 +84,18 @@ class Module(Module, multiprocessing.Process):
 
                         # Check that there is data in the DB, and that the data is not empty, and that our key is not there yet
                         if (data or data == {}) and 'geocountry' not in data and not ip_addr.is_multicast:
-                            geoinfo = self.reader.get(ip)
-                            if geoinfo:
+                            if geoinfo := self.reader.get(ip):
                                 try:
                                     countrydata = geoinfo['country']
                                     countryname = countrydata['names']['en']
-                                    data = {}
-                                    data['geocountry'] = countryname
+                                    data = {'geocountry': countryname}
                                 except KeyError:
-                                    data = {}
-                                    data['geocountry'] = 'Unknown'
+                                    data = {'geocountry': 'Unknown'}
                             elif ipaddress.ip_address(ip).is_private:
                                 # Try to find if it is a local/private IP
-                                data = {}
-                                data['geocountry'] = 'Private'
+                                data = {'geocountry': 'Private'}
                             else:
-                                data = {}
-                                data['geocountry'] = 'Unknown'
+                                data = {'geocountry': 'Unknown'}
                             __database__.setInfoForIPs(ip, data)
 
 

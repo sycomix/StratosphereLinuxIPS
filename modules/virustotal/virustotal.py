@@ -47,7 +47,9 @@ class VirusTotalModule(Module, multiprocessing.Process):
             with open(self.key_file, "r") as f:
                 self.key = f.read(64)
         except FileNotFoundError:
-            self.print("The file with API key (" + self.key_file + ") could not be loaded. VT module is stopping.")
+            self.print(
+                f"The file with API key ({self.key_file}) could not be loaded. VT module is stopping."
+            )
 
         # query counter for debugging purposes
         self.counter = 0
@@ -96,7 +98,7 @@ class VirusTotalModule(Module, multiprocessing.Process):
         """
 
         vd_text = str(int(verbose) * 10 + int(debug))
-        self.outputqueue.put(vd_text + '|' + self.name + '|[' + self.name + '] ' + str(text))
+        self.outputqueue.put(f'{vd_text}|{self.name}|[{self.name}] {str(text)}')
 
     def run(self):
         if self.key is None:
@@ -192,7 +194,7 @@ class VirusTotalModule(Module, multiprocessing.Process):
 
                             __database__.setInfoForDomains(domain, data)
 
-                        elif data and 'VirusTotal' in data:
+                        elif data:
                             # If VT is in data, check timestamp. Take time difference, if not valid, update vt scores.
                             if (time.time() - data["VirusTotal"]['timestamp']) > self.update_period:
                                 vt_scores, _ = self.get_domain_vt_data(domain)
@@ -220,10 +222,7 @@ class VirusTotalModule(Module, multiprocessing.Process):
         :param response: json dictionary with response data
         """
         response_key = 'as_owner'
-        if response_key in response:
-            return response[response_key]
-        else:
-            return ''
+        return response[response_key] if response_key in response else ''
 
     def get_passive_dns(self,response):
         """
@@ -231,10 +230,7 @@ class VirusTotalModule(Module, multiprocessing.Process):
         :param response: json dictionary with response data
         """
         response_key = 'resolutions'
-        if response_key in response:
-            return response[response_key]
-        else:
-            return ''
+        return response[response_key] if response_key in response else ''
 
     def get_ip_vt_data(self, ip: str):
         """
@@ -247,7 +243,7 @@ class VirusTotalModule(Module, multiprocessing.Process):
         try:
             addr = ipaddress.ip_address(ip)
             if addr.is_private:
-                self.print("[" + ip + "] is private, skipping", 5, 3)
+                self.print(f"[{ip}] is private, skipping", 5, 3)
                 scores = 0,0,0,0
                 return scores, '', ''
 
@@ -312,13 +308,9 @@ class VirusTotalModule(Module, multiprocessing.Process):
             # requests per minute limit reached
             if response.status == 204:
                 # usually sleeping for 40 seconds is enough, if not, try adding 20 more
-                if sleep_attempts == 0:
-                    sleep_time = 40
-                else:
-                    sleep_time = 20
+                sleep_time = 40 if sleep_attempts == 0 else 20
                 sleep_attempts += 1
 
-            # requests per hour limit reached
             elif response.status == 403:
                 # 10 minutes
                 sleep_time = 600
@@ -332,13 +324,21 @@ class VirusTotalModule(Module, multiprocessing.Process):
                 # Reason is a much shorter description ("Forbidden"), but it is always there
                 else:
                     message = response.reason
-                raise Exception("VT API returned unexpected code: " + str(response.status) + " - " + message)
+                raise Exception(
+                    f"VT API returned unexpected code: {str(response.status)} - {message}"
+                )
 
             # report that API limit is reached, wait one minute and try again
-            self.print("Status code is " + str(response.status) + " at " + str(time.asctime()) + ", query id: " + str(
-                self.counter), verbose=5)
+            self.print(
+                f"Status code is {str(response.status)} at {str(time.asctime())}, query id: {str(self.counter)}",
+                verbose=5,
+            )
 
-            self.print("API limit reached, going to sleep for " + str(sleep_time) + " seconds", verbose=1, debug=1)
+            self.print(
+                f"API limit reached, going to sleep for {str(sleep_time)} seconds",
+                verbose=1,
+                debug=1,
+            )
             time.sleep(sleep_time)
             response = self.http.request("GET", self.url, fields=params)
 
@@ -346,8 +346,7 @@ class VirusTotalModule(Module, multiprocessing.Process):
 
         # optionally, save data to file
         if save_data:
-            filename = ip + ".txt"
-            if filename:
+            if filename := f"{ip}.txt":
                 with open(filename, 'w') as f:
                     json.dump(data, f)
 
@@ -394,10 +393,7 @@ def interpret_response(response: dict):
 
     # sum the previous results, to get the sum of detections and sum of total tests
     url_detections = undetected_url_score[0] + detected_url_score[0]
-    url_total = undetected_url_score[1] + detected_url_score[1]
-
-    # compute the score for the category
-    if url_total:
+    if url_total := undetected_url_score[1] + detected_url_score[1]:
         url_ratio = url_detections/url_total
     else:
         url_ratio = 0
@@ -406,9 +402,10 @@ def interpret_response(response: dict):
     undetected_download_score = count_positives(response, "undetected_downloaded_samples", "positives", "total")
     detected_download_score = count_positives(response, "detected_downloaded_samples", "positives", "total")
     down_file_detections = undetected_download_score[0] + detected_download_score[0]
-    down_file_total = undetected_download_score[1] + detected_download_score[1]
-
-    if down_file_total:
+    if (
+        down_file_total := undetected_download_score[1]
+        + detected_download_score[1]
+    ):
         down_file_ratio = down_file_detections/down_file_total
     else:
         down_file_ratio = 0
@@ -416,9 +413,7 @@ def interpret_response(response: dict):
     undetected_ref_score = count_positives(response, "undetected_referrer_samples", "positives", "total")
     detected_ref_score = count_positives(response, "detected_referrer_samples", "positives", "total")
     ref_file_detections = undetected_ref_score[0] + detected_ref_score[0]
-    ref_file_total = undetected_ref_score[1] + detected_ref_score[1]
-
-    if ref_file_total:
+    if ref_file_total := undetected_ref_score[1] + detected_ref_score[1]:
         ref_file_ratio = ref_file_detections/ref_file_total
     else:
         ref_file_ratio = 0
@@ -426,9 +421,7 @@ def interpret_response(response: dict):
     undetected_com_score = count_positives(response, "undetected_communicating_samples", "positives", "total")
     detected_com_score = count_positives(response, "detected_communicating_samples", "positives", "total")
     com_file_detections = undetected_com_score[0] + detected_com_score[0]
-    com_file_total = undetected_com_score[1] + detected_com_score[1]
-
-    if com_file_total:
+    if com_file_total := undetected_com_score[1] + detected_com_score[1]:
         com_file_ratio = com_file_detections/com_file_total
     else:
         com_file_ratio = 0
@@ -455,7 +448,7 @@ def count_positives(response: dict, response_key: str, positive_key, total_key):
     """
     detections = 0
     total = 0
-    if response_key in response.keys():
+    if response_key in response:
         for item in response[response_key]:
             detections += item[positive_key]
             total += item[total_key]

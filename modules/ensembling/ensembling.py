@@ -82,7 +82,7 @@ class Module(Module, multiprocessing.Process):
         """
 
         vd_text = str(int(verbose) * 10 + int(debug))
-        self.outputqueue.put(vd_text + '|' + self.name + '|[' + self.name + '] ' + str(text))
+        self.outputqueue.put(f'{vd_text}|{self.name}|[{self.name}] {str(text)}')
 
     def set_label_per_flow_dstip(self, profileid, twid):
         '''
@@ -114,7 +114,7 @@ class Module(Module, multiprocessing.Process):
                 __database__.set_first_stage_ensembling_label_to_flow(profileid, twid, flow_uid, self.normal_label)
                 # Second stage - calculate the amount of normal and malicious labels per daddr
                 dstip_labels_total[flow_data['daddr']][self.normal_label] = dstip_labels_total[flow_data['daddr']].get(self.normal_label, 0) + 1
-            elif malicious_label_total >= normal_label_total:
+            else:
                 __database__.set_first_stage_ensembling_label_to_flow(profileid, twid, flow_uid, self.malicious_label)
                 # Second stage - calculate the amount of normal and malicious labels per daddr
                 dstip_labels_total[flow_data['daddr']][self.malicious_label] = dstip_labels_total[flow_data['daddr']].get(self.malicious_label, 0) + 1
@@ -123,24 +123,23 @@ class Module(Module, multiprocessing.Process):
         try:
             # Main loop function
             while True:
-                message = self.c1.get_message(timeout=self.timeout)
-                # Check that the message is for you. Probably unnecessary...
-                if message and message['data'] == 'stop_process':
-                    return True
-                if message and message['channel'] == 'tw_closed':
-                    data = message['data']
-                    if type(data) == str:
-                        # Convert from json to dict
-                        profileip = data.split(self.separator)[1]
-                        twid = data.split(self.separator)[2]
-                        profileid = 'profile' + self.separator + profileip
+                if message := self.c1.get_message(timeout=self.timeout):
+                    if message['data'] == 'stop_process':
+                        return True
+                    if message['channel'] == 'tw_closed':
+                        data = message['data']
+                        if type(data) == str:
+                            # Convert from json to dict
+                            profileip = data.split(self.separator)[1]
+                            twid = data.split(self.separator)[2]
+                            profileid = f'profile{self.separator}{profileip}'
 
-                        # First stage -  define the final label for each flow in profileid and twid
-                        # by the majority vote of malicious and normal
-                        # Second stage - group the flows with same dstip and calculate the amount of
-                        # normal and malicious flows
+                            # First stage -  define the final label for each flow in profileid and twid
+                            # by the majority vote of malicious and normal
+                            # Second stage - group the flows with same dstip and calculate the amount of
+                            # normal and malicious flows
 
-                        self.set_label_per_flow_dstip(profileid, twid)
+                            self.set_label_per_flow_dstip(profileid, twid)
 
         except KeyboardInterrupt:
             return True

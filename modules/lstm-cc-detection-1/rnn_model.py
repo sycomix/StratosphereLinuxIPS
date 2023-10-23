@@ -65,9 +65,7 @@ df.label.replace('Normal', 0, inplace=True)
 
 # Convert each of the stratosphere letters to an integer. There are 50
 vocabulary = list("abcdefghiABCDEFGHIrstuvwxyzRSTUVWXYZ1234567890,.+*")
-int_of_letters = {}
-for i, letter in enumerate(vocabulary):
-    int_of_letters[letter] = float(i)
+int_of_letters = {letter: float(i) for i, letter in enumerate(vocabulary)}
 if args.verbose:
 	print(f'There are {len(int_of_letters)} letters in total. From letter index {min(int_of_letters.values())} to letter index {max(int_of_letters.values())}.')
 vocabulary_size = len(int_of_letters)
@@ -83,15 +81,17 @@ features_per_sample = 1
 # x_data is a list of lists. The 1st dimension is the outtuple, the second the letter. Each letter is now an int value. shape=(num_outuples, features_per_sample)
 x_data = df['state'].to_numpy()
 if args.verbose:
-	print('There are {} outtuples'.format(len(x_data)))
+	print(f'There are {len(x_data)} outtuples')
 # y_data is a list of ints that are 0 or 1. One integer per outtupple. shape=(num_outuples, 1)
 y_data = df['label'].to_numpy()
 if args.verbose:
-	print('There are {} labels'.format(len(y_data)))
+	print(f'There are {len(y_data)} labels')
 # Search the sample with max len in the training. It should be already cuted by the csv_read function to a max. Here we just check
-max_length_of_outtupple = max([len(sublist) for sublist in df.state.to_list()])
+max_length_of_outtupple = max(len(sublist) for sublist in df.state.to_list())
 if args.verbose:
-	print('The max len of the letters in all outtuples is: {}'.format(max_length_of_outtupple))
+	print(
+		f'The max len of the letters in all outtuples is: {max_length_of_outtupple}'
+	)
 
 # Here x_data is a array of lists [[]]
 if args.verbose:
@@ -183,20 +183,20 @@ model.save(args.model_file, overwrite=False)
 # To plot the results
 import matplotlib.pyplot as plt
 acc = history.history['accuracy']
-val_acc = history.history['val_accuracy'] 
-loss = history.history['loss'] 
+val_acc = history.history['val_accuracy']
+loss = history.history['loss']
 val_loss = history.history['val_loss']
 epochs = range(1, len(acc) + 1)
-plt.plot(epochs, acc, 'ro', label='Training acc') 
+plt.plot(epochs, acc, 'ro', label='Training acc')
 plt.plot(epochs, val_acc, 'r', label='Validation acc')
 
-plt.title('Training and validation accuracy') 
+plt.title('Training and validation accuracy')
 plt.legend()
 plt.savefig("test_results_acc.png")
 
 plt.close()
-plt.plot(epochs, loss, 'bo', label='Training loss') 
-plt.plot(epochs, val_loss, 'b', label='Validation loss') 
+plt.plot(epochs, loss, 'bo', label='Training loss')
+plt.plot(epochs, val_loss, 'b', label='Validation loss')
 plt.title('Training and validation loss')
 plt.legend()
 plt.savefig("test_results_loss.png")

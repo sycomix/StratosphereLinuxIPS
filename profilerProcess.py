@@ -80,7 +80,7 @@ class ProfilerProcess(multiprocessing.Process):
         """
 
         vd_text = str(int(verbose) * 10 + int(debug))
-        self.outputqueue.put(vd_text + '|' + self.name + '|[' + self.name + '] ' + str(text))
+        self.outputqueue.put(f'{vd_text}|{self.name}|[{self.name}] {str(text)}')
 
     def read_configuration(self):
         """ Read the configuration file for what we need """
@@ -109,9 +109,6 @@ class ProfilerProcess(multiprocessing.Process):
                 # There is a conf, but there is no option, or no section or no
                 # configuration file specified
                 self.width = 3600
-        # Limit any width to be > 0. By default we use 300 seconds, 5minutes
-        elif self.width < 0:
-            self.width = 3600
         else:
             self.width = 3600
         # Report the time window width
@@ -188,11 +185,7 @@ class ProfilerProcess(multiprocessing.Process):
                     if nr_commas > nr_tabs:
                         # Commas is the separator
                         self.separator = ','
-                        if nr_commas > 40:
-                            self.input_type = 'nfdump'
-                        else:
-                            self.input_type = 'argus'
-
+                        self.input_type = 'nfdump' if nr_commas > 40 else 'argus'
                     elif nr_tabs > nr_commas:
                         # Tabs is the separator
                         # Probably a conn.log file alone from zeek
@@ -208,25 +201,25 @@ class ProfilerProcess(multiprocessing.Process):
         """ Define the columns for Argus and Zeek-tabs from the line received """
         # These are the indexes for later fast processing
         line = new_line['data']
-        self.column_idx = {}
-        self.column_idx['starttime'] = False
-        self.column_idx['endtime'] = False
-        self.column_idx['dur'] = False
-        self.column_idx['proto'] = False
-        self.column_idx['appproto'] = False
-        self.column_idx['saddr'] = False
-        self.column_idx['sport'] = False
-        self.column_idx['dir'] = False
-        self.column_idx['daddr'] = False
-        self.column_idx['dport'] = False
-        self.column_idx['state'] = False
-        self.column_idx['pkts'] = False
-        self.column_idx['spkts'] = False
-        self.column_idx['dpkts'] = False
-        self.column_idx['bytes'] = False
-        self.column_idx['sbytes'] = False
-        self.column_idx['dbytes'] = False
-
+        self.column_idx = {
+            'starttime': False,
+            'endtime': False,
+            'dur': False,
+            'proto': False,
+            'appproto': False,
+            'saddr': False,
+            'sport': False,
+            'dir': False,
+            'daddr': False,
+            'dport': False,
+            'state': False,
+            'pkts': False,
+            'spkts': False,
+            'dpkts': False,
+            'bytes': False,
+            'sbytes': False,
+            'dbytes': False,
+        }
         try:
             nline = line.strip().split(self.separator)
             for field in nline:
@@ -255,15 +248,11 @@ class ProfilerProcess(multiprocessing.Process):
                 elif 'srcbytes' in field.lower():
                     self.column_idx['sbytes'] = nline.index(field)
 
-            # Some of the fields were not found probably,
-            # so just delete them from the index if their value is False.
-            # If not we will believe that we have data on them
-            # We need a temp dict because we can not change the size of dict while analyzing it
-            temp_dict = {}
-            for i in self.column_idx:
-                if type(self.column_idx[i]) == bool and self.column_idx[i] == False:
-                    continue
-                temp_dict[i] = self.column_idx[i]
+            temp_dict = {
+                i: self.column_idx[i]
+                for i, value in self.column_idx.items()
+                if type(value) != bool or self.column_idx[i] != False
+            }
             self.column_idx = temp_dict
         except Exception as inst:
             self.print('\tProblem in define_columns()', 0, 1)
@@ -341,10 +330,7 @@ class ProfilerProcess(multiprocessing.Process):
         line = line.split('\t')
 
         # Generic fields in Zeek
-        self.column_values: dict = {}
-        # We need to set it to empty at the beginning so any new flow has
-        # the key 'type'
-        self.column_values['type'] = ''
+        self.column_values: dict = {'type': ''}
         try:
             self.column_values['starttime'] = self.get_time(line[0])
         except IndexError:
@@ -579,7 +565,7 @@ class ProfilerProcess(multiprocessing.Process):
                     self.column_values['host_key'] = line[17]
                 except IndexError:
                     self.column_values['host_key'] = ''
-            elif 'success' not in line[7]:
+            else:
                 self.column_values['auth_success'] = ''
                 try:
                     self.column_values['auth_attempts'] = line[7]
@@ -664,9 +650,7 @@ class ProfilerProcess(multiprocessing.Process):
         line = new_line['data']
         file_type = new_line['type']
         # Generic fields in Zeek
-        self.column_values = {}
-        # We need to set it to empty at the beggining so any new flow has the key 'type'
-        self.column_values['type'] = ''
+        self.column_values = {'type': ''}
         try:
             self.column_values['starttime'] = self.get_time(line['ts'])
         except KeyError:
@@ -953,26 +937,26 @@ class ProfilerProcess(multiprocessing.Process):
         Process the line and extract columns for argus
         """
         line = new_line['data']
-        self.column_values = {}
-        self.column_values['starttime'] = False
-        self.column_values['endtime'] = False
-        self.column_values['dur'] = False
-        self.column_values['proto'] = False
-        self.column_values['appproto'] = False
-        self.column_values['saddr'] = False
-        self.column_values['sport'] = False
-        self.column_values['dir'] = False
-        self.column_values['daddr'] = False
-        self.column_values['dport'] = False
-        self.column_values['state'] = False
-        self.column_values['pkts'] = False
-        self.column_values['spkts'] = False
-        self.column_values['dpkts'] = False
-        self.column_values['bytes'] = False
-        self.column_values['sbytes'] = False
-        self.column_values['dbytes'] = False
-        self.column_values['type'] = 'argus'
-
+        self.column_values = {
+            'starttime': False,
+            'endtime': False,
+            'dur': False,
+            'proto': False,
+            'appproto': False,
+            'saddr': False,
+            'sport': False,
+            'dir': False,
+            'daddr': False,
+            'dport': False,
+            'state': False,
+            'pkts': False,
+            'spkts': False,
+            'dpkts': False,
+            'bytes': False,
+            'sbytes': False,
+            'dbytes': False,
+            'type': 'argus',
+        }
         # Read the lines fast
         nline = line.strip().split(self.separator)
         try:
@@ -1048,26 +1032,26 @@ class ProfilerProcess(multiprocessing.Process):
         """
         Process the line and extract columns for nfdump
         """
-        self.column_values = {}
-        self.column_values['starttime'] = False
-        self.column_values['endtime'] = False
-        self.column_values['dur'] = False
-        self.column_values['proto'] = False
-        self.column_values['appproto'] = False
-        self.column_values['saddr'] = False
-        self.column_values['sport'] = False
-        self.column_values['dir'] = False
-        self.column_values['daddr'] = False
-        self.column_values['dport'] = False
-        self.column_values['state'] = False
-        self.column_values['pkts'] = False
-        self.column_values['spkts'] = False
-        self.column_values['dpkts'] = False
-        self.column_values['bytes'] = False
-        self.column_values['sbytes'] = False
-        self.column_values['dbytes'] = False
-        self.column_values['type'] = 'nfdump'
-
+        self.column_values = {
+            'starttime': False,
+            'endtime': False,
+            'dur': False,
+            'proto': False,
+            'appproto': False,
+            'saddr': False,
+            'sport': False,
+            'dir': False,
+            'daddr': False,
+            'dport': False,
+            'state': False,
+            'pkts': False,
+            'spkts': False,
+            'dpkts': False,
+            'bytes': False,
+            'sbytes': False,
+            'dbytes': False,
+            'type': 'nfdump',
+        }
         # Read the lines fast
         line = new_line['data']
         nline = line.strip().split(self.separator)
@@ -1371,7 +1355,16 @@ class ProfilerProcess(multiprocessing.Process):
             # Define which type of flows we are going to preocess
             if not self.column_values:
                 return True
-            elif not 'ssh' in self.column_values['type'] and not 'ssl' in self.column_values['type'] and not 'http' in self.column_values['type'] and not 'dns' in self.column_values['type'] and not 'conn' in self.column_values['type'] and not 'flow' in self.column_values['type'] and not 'argus' in self.column_values['type'] and not 'nfdump' in self.column_values['type']:
+            elif (
+                'ssh' not in self.column_values['type']
+                and 'ssl' not in self.column_values['type']
+                and 'http' not in self.column_values['type']
+                and 'dns' not in self.column_values['type']
+                and 'conn' not in self.column_values['type']
+                and 'flow' not in self.column_values['type']
+                and 'argus' not in self.column_values['type']
+                and 'nfdump' not in self.column_values['type']
+            ):
                 return True
             elif self.column_values['starttime'] is None:
                 # There is suricata issue with invalid timestamp for examaple: "1900-01-00T00:00:08.511802+0000"
@@ -1405,7 +1398,7 @@ class ProfilerProcess(multiprocessing.Process):
             flow_type = self.column_values['type']
             saddr = self.column_values['saddr']
             daddr = self.column_values['daddr']
-            profileid = 'profile' + self.id_separator + str(saddr)
+            profileid = f'profile{self.id_separator}{str(saddr)}'
 
             if 'flow' in flow_type or 'conn' in flow_type or 'argus' in flow_type or 'nfdump' in flow_type:
                 dur = self.column_values['dur']
@@ -1456,7 +1449,7 @@ class ProfilerProcess(multiprocessing.Process):
                 # self.print(f'Storing features going out for profile {profileid} and tw {twid}')
                 if 'flow' in flow_type or 'conn' in flow_type or 'argus' in flow_type or 'nfdump' in flow_type:
                     # Tuple
-                    tupleid = str(daddr_as_obj) + ':' + str(dport) + ':' + proto
+                    tupleid = f'{str(daddr_as_obj)}:{str(dport)}:{proto}'
                     # Compute the symbol for this flow, for this TW, for this profile. The symbol is based on the 'letters' of the original Startosphere ips tool
                     symbol = self.compute_symbol(profileid, twid, tupleid, starttime, dur, allbytes, tuple_key='OutTuples')
                     # Change symbol for its internal data. Symbol is a tuple and is confusing if we ever change the API
@@ -1492,7 +1485,7 @@ class ProfilerProcess(multiprocessing.Process):
                 # self.print(f'Storing features going in for profile {profileid} and tw {twid}')
                 if 'flow' in flow_type or 'conn' in flow_type or 'argus' in flow_type or 'nfdump' in flow_type:
                     # Tuple. We use the src ip, but the dst port still!
-                    tupleid = str(saddr_as_obj) + ':' + str(dport) + ':' + proto
+                    tupleid = f'{str(saddr_as_obj)}:{str(dport)}:{proto}'
                     # Compute symbols.
                     symbol = self.compute_symbol(profileid, twid, tupleid, starttime, dur, allbytes, tuple_key='InTuples')
                     # Add the src tuple
@@ -1507,7 +1500,8 @@ class ProfilerProcess(multiprocessing.Process):
                     __database__.add_port(profileid, twid, daddr_as_obj, self.column_values, role, port_type)
                     # Add the flow with all the fields interpreted
                     __database__.add_flow(profileid=profileid, twid=twid, stime=starttime, dur=dur, saddr=str(saddr_as_obj), sport=sport, daddr=str(daddr_as_obj), dport=dport, proto=proto, state=state, pkts=pkts, allbytes=allbytes, spkts=spkts, sbytes=sbytes, appproto=appproto, uid=uid, label=self.label)
-                    # No dns check going in. Probably ok.
+                                # No dns check going in. Probably ok.
+
 
             def get_rev_profile(starttime, daddr_as_obj):
                 # Compute the rev_profileid
@@ -1515,11 +1509,11 @@ class ProfilerProcess(multiprocessing.Process):
                 if not rev_profileid:
                     self.print("The dstip profile was not here... create", 0, 7)
                     # Create a reverse profileid for managing the data going to the dstip.
-                    rev_profileid = 'profile' + self.id_separator + str(daddr_as_obj)
+                    rev_profileid = f'profile{self.id_separator}{str(daddr_as_obj)}'
                     __database__.addProfile(rev_profileid, starttime, self.width)
                     # Try again
                     rev_profileid = __database__.getProfileIdFromIP(daddr_as_obj)
-                    # For the profile to the dstip, find the id in the database of the tw where the flow belongs.
+                                # For the profile to the dstip, find the id in the database of the tw where the flow belongs.
                 rev_twid = self.get_timewindow(starttime, rev_profileid)
                 return rev_profileid, rev_twid
 

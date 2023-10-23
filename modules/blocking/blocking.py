@@ -49,15 +49,10 @@ class Module(Module, multiprocessing.Process):
         # timeout=None as it works in only macos and timeout=-1 as it only works in linux
         if platform.system() == 'Darwin':
             self.platform_system = 'Darwin'
-            # macos
-            self.timeout = None
         elif platform.system() == 'Linux':
             self.platform_system = 'Linux'
-            # linux
-            self.timeout = None
-        else:
-            # Other systems
-            self.timeout = None
+        # macos
+        self.timeout = None
 
     def print(self, text, verbose=1, debug=0):
         """
@@ -77,7 +72,7 @@ class Module(Module, multiprocessing.Process):
         """
 
         vd_text = str(int(verbose) * 10 + int(debug))
-        self.outputqueue.put(vd_text + '|' + self.name + '|[' + self.name + '] ' + str(text))
+        self.outputqueue.put(f'{vd_text}|{self.name}|[{self.name}] {str(text)}')
 
     def run(self):
         try:
@@ -100,7 +95,7 @@ class Module(Module, multiprocessing.Process):
                         # Block this ip in iptables
                         if self.platform_system == 'Linux':
                             # Blocking in Linux
-                            os.system('sudo iptables -A slipsBlocking -s ' + ip_to_block +' -j DROP')
+                            os.system(f'sudo iptables -A slipsBlocking -s {ip_to_block} -j DROP')
                         elif self.platform_system == 'Darwin':
                             # Blocking in MacOS
                             self.print('Mac OS blocking is not supported yet.')

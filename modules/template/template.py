@@ -75,7 +75,7 @@ class Module(Module, multiprocessing.Process):
         """
 
         vd_text = str(int(verbose) * 10 + int(debug))
-        self.outputqueue.put(vd_text + '|' + self.name + '|[' + self.name + '] ' + str(text))
+        self.outputqueue.put(f'{vd_text}|{self.name}|[{self.name}] {str(text)}')
 
     def run(self):
         try:
@@ -89,7 +89,7 @@ class Module(Module, multiprocessing.Process):
                     # Example of printing the number of profiles in the
                     # Database every second
                     data = len(__database__.getProfiles())
-                    self.print('Amount of profiles: {}'.format(data))
+                    self.print(f'Amount of profiles: {data}')
 
         except KeyboardInterrupt:
             return True

@@ -53,7 +53,7 @@ class InputProcess(multiprocessing.Process):
         # If we were given something from command line, has preference
         # over the configuration file
         if packet_filter:
-            self.packet_filter = "'" + packet_filter + "'"
+            self.packet_filter = f"'{packet_filter}'"
         self.event_handler = None
         self.event_observer = None
 
@@ -87,7 +87,7 @@ class InputProcess(multiprocessing.Process):
 
         # self.name = f'{Fore.YELLOW}{self.name}{Style.RESET_ALL}'
         vd_text = str(int(verbose) * 10 + int(debug))
-        self.outputqueue.put(vd_text + '|' + self.name + '|[' + self.name + '] ' + str(text))
+        self.outputqueue.put(f'{vd_text}|{self.name}|[{self.name}] {str(text)}')
 
     def read_nfdump_file(self) -> int:
         """
@@ -98,8 +98,7 @@ class InputProcess(multiprocessing.Process):
         next_line = None
         last_updated_file_time = datetime.now()
         lines = 0
-        line = {}
-        line['type'] = 'nfdump'
+        line = {'type': 'nfdump'}
         while True:
             if not file_handler:
                 # We will open here because we do not know when nfdump will open the file.
@@ -112,9 +111,7 @@ class InputProcess(multiprocessing.Process):
                     continue
 
             if next_line is None:
-                # Try to read next line from input file.
-                nfdump_line = file_handler.readline()
-                if nfdump_line:
+                if nfdump_line := file_handler.readline():
                     # We have something to read.
                     # Is this line a valid line?
                     try:
@@ -178,9 +175,9 @@ class InputProcess(multiprocessing.Process):
                     # Ignore the files that do not contain data.
                     if 'capture_loss' in filename or 'loaded_scripts' in filename or 'packet_filter' in filename or 'stats' in filename or 'weird' in filename or 'reporter' in filename:
                         continue
-                    file_handler = open(filename + '.log', 'r')
+                    file_handler = open(f'{filename}.log', 'r')
                     open_file_handlers[filename] = file_handler
-                    # self.print(f'New File found {filename}', 0, 6)
+                                # self.print(f'New File found {filename}', 0, 6)
 
                 # Only read the next line if the previous line was sent
                 try:
@@ -200,7 +197,6 @@ class InputProcess(multiprocessing.Process):
                     try:
                         # Convert from json to dict
                         nline = json.loads(zeek_line)
-                        line = {}
                         # All bro files have a field 'ts' with the timestamp.
                         # So we are safe here not checking the type of line
                         try:
@@ -209,9 +205,7 @@ class InputProcess(multiprocessing.Process):
                             # In some Zeek files there may not be a ts field
                             # Like in some weird smb files
                             timestamp = 0
-                        # Add the type of file to the dict so later we know how to parse it
-                        line['type'] = filename
-                        line['data'] = nline
+                        line = {'type': filename, 'data': nline}
                     except json.decoder.JSONDecodeError:
                         # It is not JSON format. It is tab format line.
                         nline = zeek_line
@@ -286,9 +280,9 @@ class InputProcess(multiprocessing.Process):
 
         # We reach here after the break produced if no zeek files are being updated.
         # No more files to read. Close the files
-        for file in open_file_handlers:
-            self.print('Closing file {}'.format(file), 3, 0)
-            open_file_handlers[file].close()
+        for file, value in open_file_handlers.items():
+            self.print(f'Closing file {file}', 3, 0)
+            value.close()
         return lines
 
     def run(self):

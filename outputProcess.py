@@ -32,7 +32,7 @@ class OutputProcess(multiprocessing.Process):
         # self.quiet manages if we should really print stuff or not
         self.quiet = False
         if self.verbose > 2:
-            print('Verbosity: {}. Debugging: {}'.format(str(self.verbose), str(self.debug)))
+            print(f'Verbosity: {str(self.verbose)}. Debugging: {str(self.debug)}')
 
     def process_line(self, line):
         """
@@ -50,7 +50,7 @@ class OutputProcess(multiprocessing.Process):
         try:
             try:
                 level = int(line.split('|')[0])
-                if int(level) < 0 or int(level) > 100:
+                if level < 0 or level > 100:
                     level = 0
             except TypeError:
                 print('Error in the level sent to the Output Process')
@@ -88,7 +88,7 @@ class OutputProcess(multiprocessing.Process):
     def output_line(self, line):
         """ Get a line of text and output it correctly """
         (level, sender, msg) = self.process_line(line)
-        verbose_level = int(int(level) / 10)
+        verbose_level = int(level) // 10
         debug_level = int(int(level) - (verbose_level * 10))
         # There should be a level 0 that we never print. So its >, and not >=
         if verbose_level > 0 and verbose_level <= 9 and verbose_level <= self.verbose:
@@ -102,12 +102,11 @@ class OutputProcess(multiprocessing.Process):
         try:
             while True:
                 line = self.queue.get()
-                if 'quiet' == line:
+                if line == 'quiet':
                     self.quiet = True
-                # if timewindows are not updated for 25 seconds, we will stop slips automatically.The 'stop_process' line is sent from logsProcess.py.
                 elif 'stop_process' in line:
                     return True
-                elif 'stop' != line:
+                elif line != 'stop':
                     if not self.quiet:
                         self.output_line(line)
 

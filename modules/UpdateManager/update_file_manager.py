@@ -58,7 +58,7 @@ class UpdateFileManager:
         """
 
         vd_text = str(int(verbose) * 10 + int(debug))
-        self.outputqueue.put(vd_text + '|' + self.name + '|[' + self.name + '] ' + str(text))
+        self.outputqueue.put(f'{vd_text}|{self.name}|[{self.name}] {str(text)}')
 
     def __check_if_update(self, file_to_download: str) -> bool:
         """
@@ -74,26 +74,22 @@ class UpdateFileManager:
             last_update = float('-inf')
 
         now = time.time()
-        if last_update + self.update_period < now:
-            # Update
-            return True
-        return False
+        return last_update + self.update_period < now
 
     def __get_e_tag_from_web(self, file_to_download) -> str:
         try:
             # We use a command in os because if we use urllib or requests the process complains!:w
             # If the webpage does not answer in 10 seconds, continue
-            command = "curl -m 10 --insecure -s -I " + file_to_download + " | grep -i etag"
+            command = f"curl -m 10 --insecure -s -I {file_to_download} | grep -i etag"
             temp = os.popen(command).read()
             try:
-                new_e_tag = temp.split()[1].split('\n')[0].replace("\"",'')
-                return new_e_tag
+                return temp.split()[1].split('\n')[0].replace("\"",'')
             except IndexError:
                 return False
         except Exception as inst:
             self.print('Error with __get_e_tag_from_web()', 0, 1)
-            self.print('{}'.format(type(inst)), 0, 1)
-            self.print('{}'.format(inst), 0, 1)
+            self.print(f'{type(inst)}', 0, 1)
+            self.print(f'{inst}', 0, 1)
             return False
 
     def __download_file(self, url: str, filepath: str) -> bool:
@@ -106,7 +102,7 @@ class UpdateFileManager:
             filepath = filepath.replace('\`', '')
             url = url.replace(';', '')
             url = url.replace('\`', '')
-            command = 'curl --insecure -s ' + url + ' -o ' + filepath
+            command = f'curl --insecure -s {url} -o {filepath}'
             self.print(f'Downloading with curl command: {command}', 0, 6)
             os.system(command)
             # Get the time of update
@@ -136,33 +132,35 @@ class UpdateFileManager:
             if new_e_tag and old_e_tag != new_e_tag:
                 # Our malicious file is old. Download new one.
                 self.print(f'Trying to download the file {file_name_to_download}', 3, 0)
-                if not self.__download_file(file_to_download, self.path_to_threat_intelligence_data + '/' + file_name_to_download):
+                if not self.__download_file(
+                    file_to_download,
+                    f'{self.path_to_threat_intelligence_data}/{file_name_to_download}',
+                ):
                     return False
 
                 if old_e_tag:
                     # File is updated and was in database. Delete previous IPs of this file.
                     self.__delete_old_source_data_from_database(file_name_to_download)
                 # Load updated IPs to the database
-                if not self.__load_malicious_datafile(self.path_to_threat_intelligence_data + '/' + file_name_to_download, file_name_to_download):
+                if not self.__load_malicious_datafile(
+                    f'{self.path_to_threat_intelligence_data}/{file_name_to_download}',
+                    file_name_to_download,
+                ):
                     return False
                 # Store the new etag and time of file in the database
-                malicious_file_info = {}
-                malicious_file_info['e-tag'] = new_e_tag
-                malicious_file_info['time'] = self.new_update_time
+                malicious_file_info = {'e-tag': new_e_tag, 'time': self.new_update_time}
                 __database__.set_malicious_file_info(file_name_to_download, malicious_file_info)
 
                 return True
-            elif new_e_tag and old_e_tag == new_e_tag:
+            elif new_e_tag:
                 self.print(f'File {file_to_download} is still the same. Not downloading the file', 3, 0)
                 # Store the update time like we downloaded it anyway
                 self.new_update_time = time.time()
                 # Store the new etag and time of file in the database
-                malicious_file_info = {}
-                malicious_file_info['e-tag'] = new_e_tag
-                malicious_file_info['time'] = self.new_update_time
+                malicious_file_info = {'e-tag': new_e_tag, 'time': self.new_update_time}
                 __database__.set_malicious_file_info(file_name_to_download, malicious_file_info)
                 return True
-            elif not new_e_tag:
+            else:
                 # Something failed. Do not download
                 self.print(f'Some error ocurred. Not downloading the file {file_to_download}', 0, 1)
                 return False
@@ -255,7 +253,11 @@ class UpdateFileManager:
             malicious_domains_dict = {}
             with open(malicious_data_path) as malicious_file:
 
-                self.print('Reading next lines in the file {} for IoC'.format(malicious_data_path), 4, 0)
+                self.print(
+                    f'Reading next lines in the file {malicious_data_path} for IoC',
+                    4,
+                    0,
+                )
 
                 # Remove comments and find the description column if possible
                 description_column = None
@@ -292,7 +294,11 @@ class UpdateFileManager:
                         ip_address = ipaddress.IPv4Address(data[column].strip())
                         # Is IPv4! let go
                         data_column = column
-                        self.print(f'The data is on column {column} and is ipv4: {ip_address}', 0, 6)
+                        self.print(
+                            f'The data is on column {data_column} and is ipv4: {ip_address}',
+                            0,
+                            6,
+                        )
                         break
                     except ipaddress.AddressValueError:
                         # Is it ipv6?
@@ -312,7 +318,6 @@ class UpdateFileManager:
                             else:
                                 # Some string that is not a domain
                                 data_column = None
-                                pass
                 if data_column is None:
                     self.print(f'Error while reading the TI file {malicious_data_path}. Could not find a column with an IP or domain', 1, 1)
                     return False
@@ -338,7 +343,7 @@ class UpdateFileManager:
                         description = line.replace("\n", "").replace("\"", "").split(",")[description_column].strip()
                     except IndexError:
                         self.print(f'IndexError Description column: {description_column}. Line: {line}')
-                    self.print('\tRead Data {}: {}'.format(data, description), 10, 0)
+                    self.print(f'\tRead Data {data}: {description}', 10, 0)
 
                     # Check if the data is a valid IPv4, IPv6 or domain
                     try:
@@ -361,7 +366,11 @@ class UpdateFileManager:
                                 # Store the ip in our local dict
                                 malicious_domains_dict[str(domain)] = json.dumps({'description': description, 'source':data_file_name})
                             else:
-                                self.print('The data {} is not valid. It was found in {}.'.format(data, malicious_data_path), 1, 1)
+                                self.print(
+                                    f'The data {data} is not valid. It was found in {malicious_data_path}.',
+                                    1,
+                                    1,
+                                )
                                 continue
             # Add all loaded malicious ips to the database
             __database__.add_ips_to_IoC(malicious_ips_dict)

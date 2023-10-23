@@ -69,7 +69,7 @@ class Module(Module, multiprocessing.Process):
                 port = line.split(',')[1]
                 proto = line.split(',')[2]
                 # descr = line.split(',')[3]
-                __database__.set_port_info(str(port)+'/'+proto, name)
+                __database__.set_port_info(f'{str(port)}/{proto}', name)
         except Exception as inst:
             self.print('Problem on load_ports()', 0, 1)
             self.print(str(type(inst)), 0, 1)
@@ -91,7 +91,7 @@ class Module(Module, multiprocessing.Process):
         """
 
         vd_text = str(int(verbose) * 10 + int(debug))
-        self.outputqueue.put(vd_text + '|' + self.name + '|[' + self.name + '] ' + str(text))
+        self.outputqueue.put(f'{vd_text}|{self.name}|[{self.name}] {str(text)}')
 
     def process_timestamp(self, timestamp: float) -> str:
         if self.is_human_timestamp is True:

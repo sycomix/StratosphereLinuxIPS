@@ -87,7 +87,9 @@ if __name__ == "__main__":
     botnet_data = filter_by_string(filter_by_string(df, 'label', 'UDP'), 'label', 'Botnet')['state'].values.tolist()
 
     # Set 0 or 1 depending on the sample Category
-    y_data = [0 for i in xrange(len(normal_data))] + [1 for i in xrange(len(botnet_data))]
+    y_data = [0 for _ in xrange(len(normal_data))] + [
+        1 for _ in xrange(len(botnet_data))
+    ]
 
     # Make sure this is right
     assert len(normal_data) > 0 and len(botnet_data) > 0

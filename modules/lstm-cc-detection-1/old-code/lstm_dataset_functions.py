@@ -23,8 +23,7 @@ import sys
 
 
 def text_filter():
-    f = '\t\n'
-    return f
+    return '\t\n'
 
 
 
@@ -63,7 +62,7 @@ def vectorize(X, Y, word_model=None, maxlen=100, mode='state',
     X = X[start_offset:]
 
     # word_model_set = sorted(set(word_model))
-    word_model_set = [c for c in word_model]
+    word_model_set = list(word_model)
 
     Y_data = []
     if mode == 'int':
@@ -93,7 +92,7 @@ def vectorize(X, Y, word_model=None, maxlen=100, mode='state',
         j = []
         for i, sentence in enumerate(X):
             if len(sentence) >= minlen:
-                j.append([char for char in list(sentence)])
+                j.append(list(list(sentence)))
                 Y_data.append(Y[i])
 
         X_array = np.asarray(j)
@@ -113,15 +112,11 @@ def vectorize(X, Y, word_model=None, maxlen=100, mode='state',
             X_data = np.reshape(
                 X_data, (len(X_data), maxlen, n_states))
 
-        if shuffle is True:
-            return shuffle_data(X_data, Y_data)
-        else:
-            return X_data, Y_data
-
+        return shuffle_data(X_data, Y_data) if shuffle is True else (X_data, Y_data)
     elif mode == 'bool':
         n_states = len(word_model_set)
         # Build dictionary
-        word_model_idx = dict((c, i) for i, c in enumerate(word_model_set))
+        word_model_idx = {c: i for i, c in enumerate(word_model_set)}
         # print (sorted(word_model_idx))
         j = []
         for i, sentence in enumerate(X):
@@ -147,11 +142,7 @@ def vectorize(X, Y, word_model=None, maxlen=100, mode='state',
             X_data = np.reshape(
                 X_data, (len(X_data), maxlen, n_states))
 
-        if shuffle is True:
-            return shuffle_data(X_data, Y_data)
-        else:
-            return X_data, Y_data
-
+        return shuffle_data(X_data, Y_data) if shuffle is True else (X_data, Y_data)
     elif mode == 'state':
         '''
         size_states -> iterate every 3 columns. ex: columns 1-2-3 for small size
@@ -197,7 +188,7 @@ def vectorize(X, Y, word_model=None, maxlen=100, mode='state',
         j = []
         for i, sentence in enumerate(X):
             if len(sentence) >= minlen:
-                j.append([char for char in list(sentence)])
+                j.append(list(list(sentence)))
                 Y_data.append(Y[i])
 
         X_array = np.asarray(j)
@@ -222,16 +213,16 @@ def vectorize(X, Y, word_model=None, maxlen=100, mode='state',
                     X_data[i, maxlen - t - 1, offset +
                            np.where(duration_states == idx_x[1])[0]] = 1
                     # set periodicity bit
-                    offset = offset + n_duration_states
+                    offset += n_duration_states
                     X_data[i, maxlen - t - 1, offset + idx_x[0]] = 1
-                # print('state: ', sentence[t])
-                # print(X_data[i, maxlen - t - 1, :])
-                # raw_input("Press Enter to continue...")
+                            # print('state: ', sentence[t])
+                            # print(X_data[i, maxlen - t - 1, :])
+                            # raw_input("Press Enter to continue...")
 
-                # with masking
-                # X_data[i, maxlen - t - 1, char_idx] = 1
-                # without masking
-                # X_data[i, t, char_idx] = 1
+                            # with masking
+                            # X_data[i, maxlen - t - 1, char_idx] = 1
+                            # without masking
+                            # X_data[i, t, char_idx] = 1
 
         if sampling != 'None':
             X_data, Y_data = apply_sampling(
@@ -239,10 +230,7 @@ def vectorize(X, Y, word_model=None, maxlen=100, mode='state',
             X_data = np.reshape(
                 X_data, (len(X_data), maxlen, n_states))
 
-        if shuffle is True:
-            return shuffle_data(X_data, Y_data)
-        else:
-            return X_data, Y_data
+        return shuffle_data(X_data, Y_data) if shuffle is True else (X_data, Y_data)
 
 
 def apply_sampling(X_data, Y_data, sampling, n_states, maxlen):

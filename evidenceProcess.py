@@ -74,7 +74,7 @@ class EvidenceProcess(multiprocessing.Process):
 
         # self.name = f'{Style.DIM}{Fore.RED}{self.name}{Style.RESET_ALL}'
         vd_text = str(int(verbose) * 10 + int(debug))
-        self.outputqueue.put(vd_text + '|' + self.name + '|[' + self.name + '] ' + str(text))
+        self.outputqueue.put(f'{vd_text}|{self.name}|[{self.name}] {str(text)}')
 
     def read_configuration(self):
         """ Read the configuration file for what we need """
@@ -119,9 +119,15 @@ class EvidenceProcess(multiprocessing.Process):
         '''
         evidence_string = ''
         dns_resolution_detection_info = __database__.get_dns_resolution(detection_info)
-        dns_resolution_detection_info_final = dns_resolution_detection_info[0:3] if dns_resolution_detection_info else ''
+        dns_resolution_detection_info_final = (
+            dns_resolution_detection_info[:3]
+            if dns_resolution_detection_info
+            else ''
+        )
         dns_resolution_ip = __database__.get_dns_resolution(ip)
-        dns_resolution_ip_final = dns_resolution_ip[0:3] if dns_resolution_detection_info else ''
+        dns_resolution_ip_final = (
+            dns_resolution_ip[:3] if dns_resolution_detection_info else ''
+        )
 
         if detection_module == 'ThreatIntelligenceBlacklistIP':
             if detection_type == 'dstip':
@@ -240,9 +246,7 @@ class EvidenceProcess(multiprocessing.Process):
         :twid: timewindow where IP was detected
         '''
 
-        ip_data = {}
-        # Maybe we should change the key to 'status' or something like that.
-        ip_data['threatintelligence'] = ip_description
+        ip_data = {'threatintelligence': ip_description}
         self.add_maliciousIP(ip, profileid, twid)
         __database__.setInfoForIPs(ip, ip_data)  # Set in the IP info that IP is blacklisted
 
@@ -255,9 +259,7 @@ class EvidenceProcess(multiprocessing.Process):
         :twid: timewindow where domain was detected
         '''
 
-        domain_data = {}
-        # Maybe we should change the key to 'status' or something like that.
-        domain_data['threatintelligence'] = domain_description
+        domain_data = {'threatintelligence': domain_description}
         self.add_maliciousDomain(domain, profileid, twid)
         __database__.setInfoForDomains(domain, domain_data)  # Set in the DomainsInfo info that Domain is blacklisted
 
@@ -299,9 +301,15 @@ class EvidenceProcess(multiprocessing.Process):
                                                               new_evidence_detection_type,
                                                               new_evidence_detection_info,
                                                               new_evidence_description)
-                        evidence_dict = {'timestamp': current_time, 'detected_ip': ip, 'detection_module':new_evidence_detection_module,  'detection_info':new_evidence_detection_type + ' ' + new_evidence_detection_info, "description":new_evidence_description}
+                        evidence_dict = {
+                            'timestamp': current_time,
+                            'detected_ip': ip,
+                            'detection_module': new_evidence_detection_module,
+                            'detection_info': f'{new_evidence_detection_type} {new_evidence_detection_info}',
+                            "description": new_evidence_description,
+                        }
 
-                        self.addDataToLogFile(current_time + ' ' + evidence_to_log)
+                        self.addDataToLogFile(f'{current_time} {evidence_to_log}')
                         self.addDataToJSONFile(evidence_dict)
 
                         # add detection info threat  intelligence in the IP and Domain info
@@ -314,11 +322,7 @@ class EvidenceProcess(multiprocessing.Process):
                         # When the channel is created the data '1' is sent
                         continue
 
-                    evidence = __database__.getEvidenceForTW(profileid, twid)
-                    # Important! It may happen that the evidence is not related to a profileid and twid.
-                    # For example when the evidence is on some src IP attacking our home net, and we are not creating
-                    # profiles for attackers
-                    if evidence:
+                    if evidence := __database__.getEvidenceForTW(profileid, twid):
                         evidence = json.loads(evidence)
                         # self.print(f'Evidence: {evidence}. Profileid {profileid}, twid {twid}')
                         # The accumulated threat level is for all the types of evidence for this profile
@@ -331,15 +335,15 @@ class EvidenceProcess(multiprocessing.Process):
                             detection_module = key_split[-1]
                             detection_info = key[len(detection_type)+1:-len(detection_module)-1] # In case of TI, this info is IP, in case of LSTM this is a tuple
                             data = evidence[key]
-                            self.print('\tEvidence for key {}'.format(key), 3, 0)
+                            self.print(f'\tEvidence for key {key}', 3, 0)
                             confidence = float(data[0])
                             threat_level = float(data[1])
                             description = data[2]
                             # Compute the moving average of evidence
                             new_threat_level = threat_level * confidence
-                            self.print('\t\tWeighted Threat Level: {}'.format(new_threat_level), 5, 0)
+                            self.print(f'\t\tWeighted Threat Level: {new_threat_level}', 5, 0)
                             accumulated_threat_level += new_threat_level
-                            self.print('\t\tAccumulated Threat Level: {}'.format(accumulated_threat_level), 5, 0)
+                            self.print(f'\t\tAccumulated Threat Level: {accumulated_threat_level}', 5, 0)
 
                         # This is the part to detect if the accumulated evidence was enough for generating a detection
                         # The detection should be done in attacks per minute. The parameter in the configuration is attacks per minute
@@ -347,7 +351,6 @@ class EvidenceProcess(multiprocessing.Process):
                         # 60 because the width is specified in seconds
                         detection_threshold_in_this_width = self.detection_threshold * self.width / 60
                         if accumulated_threat_level >= detection_threshold_in_this_width:
-                            # if this profile was not already blocked in this TW
                             if not __database__.checkBlockedProfTW(profileid, twid):
                                 # Differentiate the type of evidence for different detections
                                 evidence_to_print = self.print_evidence(profileid, twid, ip, detection_module, detection_type,detection_info, description)
@@ -361,6 +364,6 @@ class EvidenceProcess(multiprocessing.Process):
             return True
         except Exception as inst:
             self.outputqueue.put('01|evidence|[Evidence] Error in the Evidence Process')
-            self.outputqueue.put('01|evidence|[Evidence] {}'.format(type(inst)))
-            self.outputqueue.put('01|evidence|[Evidence] {}'.format(inst))
+            self.outputqueue.put(f'01|evidence|[Evidence] {type(inst)}')
+            self.outputqueue.put(f'01|evidence|[Evidence] {inst}')
             return True

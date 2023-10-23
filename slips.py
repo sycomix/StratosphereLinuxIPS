@@ -123,7 +123,7 @@ def load_modules(to_ignore):
 
     # Walk recursively through all modules and packages found on the . folder.
     # __path__ is the current path of this python program
-    for loader, module_name, ispkg in pkgutil.walk_packages(modules.__path__, modules.__name__ + '.'):
+    for loader, module_name, ispkg in pkgutil.walk_packages(modules.__path__, f'{modules.__name__}.'):
         if any(module_name.__contains__(mod) for mod in to_ignore):
             continue
         # If current item is a package, skip.
@@ -155,7 +155,7 @@ def load_modules(to_ignore):
 # Main
 ####################
 if __name__ == '__main__':  
-    print('Stratosphere Linux IPS. Version {}'.format(version))
+    print(f'Stratosphere Linux IPS. Version {version}')
     print('https://stratosphereips.org\n')
 
     # Parse the parameters
@@ -228,7 +228,7 @@ if __name__ == '__main__':
     from evidenceProcess import EvidenceProcess
 
     # Any verbosity passed as parameter overrides the configuration. Only check its value
-    if args.verbose == None:
+    if args.verbose is None:
         # Read the verbosity from the config
         try:
             args.verbose = int(config.get('parameters', 'verbose'))
@@ -238,11 +238,9 @@ if __name__ == '__main__':
             args.verbose = 1
 
     # Limit any verbosity to > 0
-    if args.verbose < 1:
-        args.verbose = 1
-
+    args.verbose = max(args.verbose, 1)
     # Any debuggsity passed as parameter overrides the configuration. Only check its value
-    if args.debug == None:
+    if args.debug is None:
         # Read the debug from the config
         try:
             args.debug = int(config.get('parameters', 'debug'))
@@ -252,9 +250,7 @@ if __name__ == '__main__':
             args.debug = 0
 
     # Limit any debuggisity to > 0
-    if args.debug < 0:
-        args.debug = 0
-
+    args.debug = max(args.debug, 0)
     # Check the type of input
     if args.interface:
         input_information = args.interface
@@ -287,15 +283,15 @@ if __name__ == '__main__':
     # Before starting update malicious file
     update_malicious_file(outputProcessQueue,config)
     # Print the PID of the main slips process. We do it here because we needed the queue to the output process
-    outputProcessQueue.put('20|main|Started main program [PID {}]'.format(os.getpid()))
+    outputProcessQueue.put(f'20|main|Started main program [PID {os.getpid()}]')
     # Output pid
-    outputProcessQueue.put('20|main|Started output thread [PID {}]'.format(outputProcessThread.pid))
+    outputProcessQueue.put(
+        f'20|main|Started output thread [PID {outputProcessThread.pid}]'
+    )
 
     # Start each module in the folder modules
     outputProcessQueue.put('01|main|[main] Starting modules')
-    to_ignore = read_configuration(config, 'modules', 'disable')
-    # This plugins import will automatically load the modules and put them in the __modules__ variable
-    if to_ignore:
+    if to_ignore := read_configuration(config, 'modules', 'disable'):
         # Convert string to list
         to_ignore = eval(to_ignore)
         # Disable blocking if was not asked and if it is not interface
@@ -305,11 +301,13 @@ if __name__ == '__main__':
             # This 'imports' all the modules somehow, but then we ignore some
             modules_to_call = load_modules(to_ignore)
             for module_name in modules_to_call:
-                if not module_name in to_ignore:
+                if module_name not in to_ignore:
                     module_class = modules_to_call[module_name]['obj']
                     ModuleProcess = module_class(outputProcessQueue, config)
                     ModuleProcess.start()
-                    outputProcessQueue.put('20|main|\t[main] Starting the module {} ({}) [PID {}]'.format(module_name, modules_to_call[module_name]['description'], ModuleProcess.pid))
+                    outputProcessQueue.put(
+                        f"20|main|\t[main] Starting the module {module_name} ({modules_to_call[module_name]['description']}) [PID {ModuleProcess.pid}]"
+                    )
         except TypeError:
             # There are not modules in the configuration to ignore?
             print('No modules are ignored')
@@ -330,8 +328,10 @@ if __name__ == '__main__':
             logsProcessQueue = Queue()
             logsProcessThread = LogsProcess(logsProcessQueue, outputProcessQueue, args.verbose, args.debug, config)
             logsProcessThread.start()
-            outputProcessQueue.put('20|main|Started logsfiles thread [PID {}]'.format(logsProcessThread.pid))
-        # If args.nologfiles is False, then we don't want log files, independently of what the conf says.
+            outputProcessQueue.put(
+                f'20|main|Started logsfiles thread [PID {logsProcessThread.pid}]'
+            )
+            # If args.nologfiles is False, then we don't want log files, independently of what the conf says.
 
     # Evidence thread
     # Create the queue for the evidence thread
@@ -339,7 +339,9 @@ if __name__ == '__main__':
     # Create the thread and start it
     evidenceProcessThread = EvidenceProcess(evidenceProcessQueue, outputProcessQueue, config)
     evidenceProcessThread.start()
-    outputProcessQueue.put('20|main|Started Evidence thread [PID {}]'.format(evidenceProcessThread.pid))
+    outputProcessQueue.put(
+        f'20|main|Started Evidence thread [PID {evidenceProcessThread.pid}]'
+    )
 
     # Profile thread
     # Create the queue for the profile thread
@@ -347,13 +349,17 @@ if __name__ == '__main__':
     # Create the profile thread and start it
     profilerProcessThread = ProfilerProcess(profilerProcessQueue, outputProcessQueue, config, args.width)
     profilerProcessThread.start()
-    outputProcessQueue.put('20|main|Started profiler thread [PID {}]'.format(profilerProcessThread.pid))
+    outputProcessQueue.put(
+        f'20|main|Started profiler thread [PID {profilerProcessThread.pid}]'
+    )
 
     # Input process
     # Create the input process and start it
     inputProcess = InputProcess(outputProcessQueue, profilerProcessQueue, input_type, input_information, config, args.pcapfilter, zeek_bro)
     inputProcess.start()
-    outputProcessQueue.put('20|main|Started input thread [PID {}]'.format(inputProcess.pid))
+    outputProcessQueue.put(
+        f'20|main|Started input thread [PID {inputProcess.pid}]'
+    )
 
     # Store the host IP address if input type is interface
     if input_type == 'interface':
@@ -386,7 +392,9 @@ if __name__ == '__main__':
                 __database__.setSlipsInternalTime(time_last_modified_tw)
             # How many profiles we have?
             profilesLen = str(__database__.getProfilesLen())
-            outputProcessQueue.put('20|main|[Main] Total Number of Profiles in DB so far: {}. Modified Profiles in the last TW: {}. ({})'.format(profilesLen, amount_of_modified, datetime.now().strftime('%Y-%m-%d--%H:%M:%S')))
+            outputProcessQueue.put(
+                f"20|main|[Main] Total Number of Profiles in DB so far: {profilesLen}. Modified Profiles in the last TW: {amount_of_modified}. ({datetime.now().strftime('%Y-%m-%d--%H:%M:%S')})"
+            )
 
             # Check if we need to close some TW
             __database__.check_TW_to_close()
@@ -410,41 +418,36 @@ if __name__ == '__main__':
                 # network was changed
                 if not modifiedTW_hostIP and args.interface:
                     if minimum_intervals_to_wait == 0:
-                        hostIP = recognize_host_ip()
-                        if hostIP:
+                        if hostIP := recognize_host_ip():
                             __database__.set_host_ip(hostIP)
                         minimum_intervals_to_wait = limit_minimum_intervals_to_wait
                     minimum_intervals_to_wait -= 1
                 else:
                     minimum_intervals_to_wait = limit_minimum_intervals_to_wait
 
-            # When running Slips in the file.
-            # If there were no modified TW in the last timewindow time,
-            # then start counting down
+            elif amount_of_modified == 0:
+                # print('Counter to stop Slips. Amount of modified
+                # timewindows: {}. Stop counter: {}'.format(amount_of_modified, minimum_intervals_to_wait))
+                if minimum_intervals_to_wait == 0:
+                    # Stop the output Process
+                    print('Stopping Slips')
+                    # Stop the modules that are subscribed to channels
+                    __database__.publish_stop()
+                    # Here we should Wait for any channel if it has still
+                    # data to receive in its channel
+                    # Send manual stops to the process not using channels
+                    try:
+                        logsProcessQueue.put('stop_process')
+                    except NameError:
+                        # The logsProcessQueue is not there because we
+                        # didnt started the logs files (used -l)
+                        pass
+                    outputProcessQueue.put('stop_process')
+                    profilerProcessQueue.put('stop_process')
+                    break
+                minimum_intervals_to_wait -= 1
             else:
-                if amount_of_modified == 0:
-                    # print('Counter to stop Slips. Amount of modified
-                    # timewindows: {}. Stop counter: {}'.format(amount_of_modified, minimum_intervals_to_wait))
-                    if minimum_intervals_to_wait == 0:
-                        # Stop the output Process
-                        print('Stopping Slips')
-                        # Stop the modules that are subscribed to channels
-                        __database__.publish_stop()
-                        # Here we should Wait for any channel if it has still
-                        # data to receive in its channel
-                        # Send manual stops to the process not using channels
-                        try:
-                            logsProcessQueue.put('stop_process')
-                        except NameError:
-                            # The logsProcessQueue is not there because we
-                            # didnt started the logs files (used -l)
-                            pass
-                        outputProcessQueue.put('stop_process')
-                        profilerProcessQueue.put('stop_process')
-                        break
-                    minimum_intervals_to_wait -= 1
-                else:
-                    minimum_intervals_to_wait = limit_minimum_intervals_to_wait
+                minimum_intervals_to_wait = limit_minimum_intervals_to_wait
 
     except KeyboardInterrupt:
         print('Stopping Slips')

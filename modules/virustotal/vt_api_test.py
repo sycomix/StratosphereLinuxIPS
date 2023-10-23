@@ -13,8 +13,7 @@ def check_ip_from_file(ip):
     :param ip: IP address to work with
     :return: None
     """
-    filename = ip + ".txt"
-    if filename:
+    if filename := f"{ip}.txt":
         with open(filename, 'r') as f:
             data = json.load(f)
             print(data)
@@ -65,11 +64,7 @@ def process_input_file(infile, outfile, is_ips):
         return vt_test.check_ip(ip)
 
     # use different function to compute the score based on input format
-    if is_ips:
-        get_score = get_score_for_ip
-    else:
-        get_score = get_score_for_hostname
-
+    get_score = get_score_for_ip if is_ips else get_score_for_hostname
     if os.path.exists(outfile):
         os.remove(outfile)
     with open(infile, 'r') as f:
@@ -84,7 +79,7 @@ def process_input_file(infile, outfile, is_ips):
                     o.write(str(scores) + "\n")
                 except socket.gaierror:
                     # unresolvable hostnames will throw this error, ignore those
-                    print("Service " + l + " not known")
+                    print(f"Service {l} not known")
 
 
 def read_score_from_file(filename, verbose=False):
@@ -121,8 +116,7 @@ def test_api_limit():
     import random
     vt = VirusTotalModule(None, get_default_config(), testing=True)
     while True:
-        ip = str(random.randint(0, 255)) + "." + str(random.randint(0, 255)) + "."\
-             + str(random.randint(0, 255)) + "." + str(random.randint(0, 255))
+        ip = f"{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}"
         vt.check_ip(ip)
 
 
